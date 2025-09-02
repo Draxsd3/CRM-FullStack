@@ -17,7 +17,7 @@ Sistema de CRM para gestão de empresas, pipeline de vendas e automação de pro
 
 ## Prints do Sistema
 
-> _Adicione aqui prints das principais telas do sistema para ilustrar as funcionalidades!_
+
 
 - **Dashboard**  
   ![Dashboard](./prints/dashboard.png)
