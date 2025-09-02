@@ -1,0 +1,96 @@
+securitizadora-crm/
+├── backend/
+│   ├── config/
+│   │   ├── database.js
+│   │   └── server.js
+│   ├── controllers/
+│   │   ├── companyController.js
+│   │   ├── meetingController.js
+│   │   ├── pipelineController.js
+│   │   └── reportController.js
+│   ├── middlewares/
+│   │   ├── auth.js
+│   │   └── errorHandler.js
+│   ├── models/
+│   │   ├── Company.js
+│   │   ├── Meeting.js
+│   │   ├── PipelineHistory.js
+│   │   └── User.js
+│   ├── routes/
+│   │   ├── companyRoutes.js
+│   │   ├── meetingRoutes.js
+│   │   ├── pipelineRoutes.js
+│   │   └── reportRoutes.js
+│   ├── services/
+│   │   ├── companyService.js
+│   │   ├── meetingService.js
+│   │   ├── pipelineService.js
+│   │   └── reportService.js
+│   ├── utils/
+│   │   ├── exportData.js
+│   │   └── validators.js
+│   ├── .env
+│   ├── .gitignore
+│   ├── package.json
+│   └── server.js
+└── frontend/
+    ├── public/
+    │   ├── favicon.ico
+    │   └── index.html
+    ├── src/
+    │   ├── assets/
+    │   │   └── logo.svg
+    │   ├── components/
+    │   │   ├── calendar/
+    │   │   │   ├── Calendar.jsx
+    │   │   │   ├── MeetingForm.jsx
+    │   │   │   └── MeetingItem.jsx
+    │   │   ├── common/
+    │   │   │   ├── Header.jsx
+    │   │   │   ├── Sidebar.jsx
+    │   │   │   └── Loading.jsx
+    │   │   ├── companies/
+    │   │   │   ├── CompanyForm.jsx
+    │   │   │   ├── CompanyList.jsx
+    │   │   │   └── CompanyDetails.jsx
+    │   │   ├── pipeline/
+    │   │   │   ├── KanbanBoard.jsx
+    │   │   │   ├── KanbanColumn.jsx
+    │   │   │   ├── CompanyCard.jsx
+    │   │   │   └── HistoryLog.jsx
+    │   │   └── reports/
+    │   │       ├── ReportFilters.jsx
+    │   │       ├── ReportCharts.jsx
+    │   │       └── ExportOptions.jsx
+    │   ├── contexts/
+    │   │   ├── AuthContext.jsx
+    │   │   └── NotificationContext.jsx
+    │   ├── hooks/
+    │   │   ├── useApi.js
+    │   │   └── useDragAndDrop.js
+    │   ├── pages/
+    │   │   ├── Dashboard.jsx
+    │   │   ├── Companies.jsx
+    │   │   ├── Pipeline.jsx
+    │   │   ├── Calendar.jsx
+    │   │   ├── Reports.jsx
+    │   │   ├── Login.jsx
+    │   │   └── NotFound.jsx
+    │   ├── services/
+    │   │   ├── api.js
+    │   │   ├── companyService.js
+    │   │   ├── meetingService.js
+    │   │   ├── pipelineService.js
+    │   │   └── reportService.js
+    │   ├── utils/
+    │   │   ├── dateUtils.js
+    │   │   ├── formatters.js
+    │   │   └── validators.js
+    │   ├── App.jsx
+    │   ├── index.jsx
+    │   └── routes.jsx
+    ├── .env
+    ├── .gitignore
+    ├── package.json
+    └── README.md
+
