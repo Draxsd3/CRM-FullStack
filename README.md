@@ -43,7 +43,7 @@ Sistema de CRM para gestão de empresas, pipeline de vendas e automação de pro
 
 1. **Clone o repositório:**
    ```bash
-   git clone https://github.com/SEU_USUARIO/crm_goldcredit.git
+   git clone https://github.com/Draxsd3/crm_goldcredit
    ```
 
 2. **Instale as dependências do backend e frontend:**
