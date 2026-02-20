@@ -1,4 +1,4 @@
-# CRM GoldCredit
+# CRM Full Stack
 
 Sistema de CRM para gestão de empresas, pipeline de vendas e automação de processos comerciais.
 
@@ -43,12 +43,12 @@ Sistema de CRM para gestão de empresas, pipeline de vendas e automação de pro
 
 1. **Clone o repositório:**
    ```bash
-   git clone https://github.com/Draxsd3/crm_goldcredit
+   git clone https://github.com/Draxsd3/crm-fullstack
    ```
 
 2. **Instale as dependências do backend e frontend:**
    ```bash
-   cd crm_goldcredit/backend
+   cdcrm-fullstack/backend
    npm install
    cd ../frontend
    npm install
@@ -67,4 +67,4 @@ Sistema de CRM para gestão de empresas, pipeline de vendas e automação de pro
 
 ## Licença
 
-Projeto privado e de uso exclusivo da equipe
+Projeto privado e de uso exclusivo
