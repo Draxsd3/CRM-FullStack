@@ -1,38 +1,35 @@
-const { Sequelize } = require('sequelize');
+const mongoose = require('mongoose');
 require('dotenv').config();
 
-const sequelize = new Sequelize(
-  process.env.DB_NAME,
-  process.env.DB_USER,
-  process.env.DB_PASS,
-  {
-    host: process.env.DB_HOST,
-    dialect: process.env.DB_DIALECT,
-    logging: process.env.NODE_ENV === 'development' ? console.log : false,
-    define: {
-      timestamps: true,
-      underscored: false,
-    },
-    /* @tweakable timezone setting for database connection */
-    timezone: '-03:00', // Brazil timezone
-    dialectOptions: {
-      /* @tweakable options for handling dates in MySQL */
-      dateStrings: true,
-      typeCast: function (field, next) {
-        if (field.type === 'DATETIME') {
-          return field.string();
-        }
-        return next();
-      }
-    },
-    /* @tweakable connection pool settings */
-    pool: {
-      max: 5,
-      min: 0,
-      acquire: 30000,
-      idle: 10000
-    }
-  }
-);
+const connectDB = async () => {
+  try {
+    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+      // Mongoose 8+ doesn't need most of the old options
+    });
 
-module.exports = sequelize;
+    console.log(`MongoDB Connected: ${conn.connection.host}`);
+
+    // Handle connection events
+    mongoose.connection.on('error', (err) => {
+      console.error('MongoDB connection error:', err);
+    });
+
+    mongoose.connection.on('disconnected', () => {
+      console.warn('MongoDB disconnected. Attempting to reconnect...');
+    });
+
+    // Graceful shutdown
+    process.on('SIGINT', async () => {
+      await mongoose.connection.close();
+      console.log('MongoDB connection closed through app termination');
+      process.exit(0);
+    });
+
+    return conn;
+  } catch (error) {
+    console.error('Error connecting to MongoDB:', error.message);
+    process.exit(1);
+  }
+};
+
+module.exports = connectDB;

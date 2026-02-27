@@ -15,6 +15,7 @@ import { toast } from "react-toastify";
 import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
 import { AuthContext } from "../contexts/AuthContext";
 import userService from "../services/userService";
+const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
 const Profile = () => {
   const { user, refreshUserData } = useContext(AuthContext);
   const [formData, setFormData] = useState({
@@ -42,7 +43,7 @@ const Profile = () => {
         profilePhoto: null
       });
       if (user.profilePhoto) {
-        setPhotoPreview(`${process.env.REACT_APP_API_URL}/uploads/${user.profilePhoto}`);
+        setPhotoPreview(`${API_BASE_URL}/uploads/${user.profilePhoto}`);
       }
     }
   }, [user]);

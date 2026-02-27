@@ -20,7 +20,8 @@ import {
   Menu,
   MenuItem,
   ListItemButton,
-  Tooltip
+  Tooltip,
+  Stack
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
@@ -41,6 +42,7 @@ import { alpha } from "@mui/material/styles";
 import { useNavigate, useLocation } from "react-router-dom";
 import { AuthContext } from "../../contexts/AuthContext";
 import { NotificationContext } from "../../contexts/NotificationContext";
+import logoMinimal from "../../assets/logo-minimal.svg";
 const drawerWidth = 240;
 const Main = styled("main", { shouldForwardProp: (prop) => prop !== "open" })(
   ({ theme, open }) => ({
@@ -138,6 +140,7 @@ const Layout = () => {
     setOpen(false);
   };
   const handleLogout = () => {
+    sessionStorage.setItem("authTransition", "logout");
     logout();
     navigate("/login");
   };
@@ -202,7 +205,18 @@ const Layout = () => {
           columnNumber: 11
         }
       ),
-      /* @__PURE__ */ jsxDEV(Typography, { variant: "h6", noWrap: true, component: "div", sx: { display: { xs: "none", sm: "block" } }, children: "CRM Gold Credit" }, void 0, false, {
+      /* @__PURE__ */ jsxDEV(Stack, { direction: "row", spacing: 1, alignItems: "center", sx: { display: { xs: "none", sm: "flex" } }, children: [
+        /* @__PURE__ */ jsxDEV(Box, { component: "img", src: logoMinimal, alt: "Logo", sx: { width: 30, height: 30, display: "block" } }, void 0, false, {
+          fileName: "<stdin>",
+          lineNumber: 184,
+          columnNumber: 11
+        }),
+        /* @__PURE__ */ jsxDEV(Typography, { variant: "h6", noWrap: true, component: "div", children: "CRM de Leads" }, void 0, false, {
+          fileName: "<stdin>",
+          lineNumber: 185,
+          columnNumber: 11
+        })
+      ] }, void 0, true, {
         fileName: "<stdin>",
         lineNumber: 184,
         columnNumber: 11
@@ -428,15 +442,17 @@ const Layout = () => {
         anchor: "left",
         open,
         children: [
-          /* @__PURE__ */ jsxDEV(DrawerHeader, { children: /* @__PURE__ */ jsxDEV(IconButton, { onClick: handleDrawerClose, children: /* @__PURE__ */ jsxDEV(ChevronLeftIcon, {}, void 0, false, {
-            fileName: "<stdin>",
-            lineNumber: 312,
-            columnNumber: 13
-          }) }, void 0, false, {
-            fileName: "<stdin>",
-            lineNumber: 311,
-            columnNumber: 11
-          }) }, void 0, false, {
+          /* @__PURE__ */ jsxDEV(DrawerHeader, { sx: { justifyContent: "flex-end", px: 1 }, children: [
+            /* @__PURE__ */ jsxDEV(IconButton, { onClick: handleDrawerClose, children: /* @__PURE__ */ jsxDEV(ChevronLeftIcon, {}, void 0, false, {
+              fileName: "<stdin>",
+              lineNumber: 316,
+              columnNumber: 13
+            }) }, void 0, false, {
+              fileName: "<stdin>",
+              lineNumber: 315,
+              columnNumber: 11
+            })
+          ] }, void 0, true, {
             fileName: "<stdin>",
             lineNumber: 310,
             columnNumber: 9
@@ -560,7 +576,11 @@ const Layout = () => {
         lineNumber: 353,
         columnNumber: 9
       }),
-      /* @__PURE__ */ jsxDEV(Outlet, {}, void 0, false, {
+      /* @__PURE__ */ jsxDEV(Box, { className: "page-transition", key: location.pathname, children: /* @__PURE__ */ jsxDEV(Outlet, {}, void 0, false, {
+        fileName: "<stdin>",
+        lineNumber: 354,
+        columnNumber: 9
+      }) }, void 0, false, {
         fileName: "<stdin>",
         lineNumber: 354,
         columnNumber: 9

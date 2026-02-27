@@ -23,6 +23,7 @@ import HistoryLog from "../components/pipeline/HistoryLog";
 import MeetingForm from "../components/calendar/MeetingForm";
 import QualificationDialog from "../components/companies/dialogs/QualificationDialog";
 import StatusDialog from "../components/companies/dialogs/StatusDialog";
+import LoadingScreen from "../components/ui/LoadingScreen";
 const CompanyDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -93,7 +94,7 @@ const CompanyDetails = () => {
     });
   };
   if (loading) {
-    return /* @__PURE__ */ jsxDEV(Typography, { children: "Carregando detalhes da empresa..." }, void 0, false, {
+    return /* @__PURE__ */ jsxDEV(LoadingScreen, { message: "Carregando detalhes da empresa..." }, void 0, false, {
       fileName: "<stdin>",
       lineNumber: 123,
       columnNumber: 12

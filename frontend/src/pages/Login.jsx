@@ -1,635 +1,339 @@
-import { jsxDEV } from "react/jsx-dev-runtime";
-import React, { useState, useContext } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import {
-  Box,
-  Paper,
-  Typography,
-  TextField,
-  Button,
   Alert,
-  Container,
+  Box,
+  Button,
+  Checkbox,
   CssBaseline,
+  FormControlLabel,
+  IconButton,
+  InputAdornment,
+  Link,
+  Stack,
+  TextField,
   ThemeProvider,
+  Typography,
   createTheme,
   useMediaQuery,
-  Link
 } from "@mui/material";
-import { useNavigate, Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
+import Visibility from "@mui/icons-material/Visibility";
+import VisibilityOff from "@mui/icons-material/VisibilityOff";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
+import LoadingScreen from "../components/ui/LoadingScreen";
 import { AuthContext } from "../contexts/AuthContext";
-import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
-import Avatar from "@mui/material/Avatar";
-import { green, blue, grey } from "@mui/material/colors";
+import logoMinimal from "../assets/logo-minimal.svg";
+
 const theme = createTheme({
   palette: {
-    primary: {
-      main: "#4caf50"
-      // Green color
-    },
-    secondary: {
-      main: blue[700]
-    },
-    background: {
-      default: "#f7f9fc"
-    }
+    mode: "light",
+    primary: { main: "#1f8f4a" },
+    background: { default: "#e6ebe8" },
   },
   typography: {
-    fontFamily: "Roboto, Arial, sans-serif"
+    fontFamily: "'Plus Jakarta Sans', 'Segoe UI', sans-serif",
   },
-  shape: {
-    borderRadius: 12
-  },
-  components: {
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          textTransform: "none",
-          fontWeight: 600,
-          borderRadius: 8,
-          boxShadow: "none",
-          padding: "12px 16px",
-          "&:hover": {
-            boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)"
-          }
-        }
-      }
-    },
-    MuiTextField: {
-      styleOverrides: {
-        root: {
-          "& .MuiOutlinedInput-root": {
-            borderRadius: 8
-          }
-        }
-      }
-    }
-  }
+  shape: { borderRadius: 14 },
 });
-const Login = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+
+export default function Login() {
   const { login, isAuthenticated, loading } = useContext(AuthContext);
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberDevice, setRememberDevice] = useState(false);
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPreload, setShowPreload] = useState(false);
+  const [preloadMessage, setPreloadMessage] = useState("Preparando seu painel...");
+
+  useEffect(() => {
+    const transition = sessionStorage.getItem("authTransition");
+    if (transition === "logout") {
+      setPreloadMessage("Saindo...");
+      setShowPreload(true);
+      const timer = setTimeout(() => {
+        sessionStorage.removeItem("authTransition");
+        setShowPreload(false);
+      }, 900);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, []);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setError("");
+    setIsSubmitting(true);
+
     try {
-      const success = await login(email, password);
-      if (success) {
-        navigate("/");
-      } else {
-        setError("Credenciais inv\xE1lidas");
+      const result = await login(email, password);
+      if (result?.success) {
+        setPreloadMessage("Preparando seu painel...");
+        setShowPreload(true);
+        setTimeout(() => navigate("/"), 1100);
+        return;
       }
+      setError(result?.message || "Credenciais invalidas");
     } catch (err) {
-      setError("Erro ao fazer login. Tente novamente.");
       console.error(err);
+      setError("Erro ao fazer login. Tente novamente.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
-  if (isAuthenticated && !loading) {
-    return /* @__PURE__ */ jsxDEV(Navigate, { to: "/" }, void 0, false, {
-      fileName: "<stdin>",
-      lineNumber: 93,
-      columnNumber: 12
-    });
+
+  if (showPreload) {
+    return <LoadingScreen message={preloadMessage} fullScreen />;
   }
-  return /* @__PURE__ */ jsxDEV(ThemeProvider, { theme, children: [
-    /* @__PURE__ */ jsxDEV(CssBaseline, {}, void 0, false, {
-      fileName: "<stdin>",
-      lineNumber: 98,
-      columnNumber: 7
-    }),
-    /* @__PURE__ */ jsxDEV(Box, { sx: {
-      minHeight: "100vh",
-      display: "flex",
-      backgroundColor: "#f7f9fc",
-      overflow: "hidden",
-      position: "relative"
-    }, children: [
-      !isMobile && /* @__PURE__ */ jsxDEV(Box, { sx: {
-        flex: "0 0 50%",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        alignItems: "center",
-        position: "relative",
-        background: "linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)",
-        color: "white",
-        p: 5,
-        overflow: "hidden"
-      }, children: [
-        /* @__PURE__ */ jsxDEV(Box, { sx: { position: "absolute", top: 0, left: 0, width: "100%", height: "100%", opacity: 0.1 }, children: /* @__PURE__ */ jsxDEV("svg", { width: "100%", height: "100%", viewBox: "0 0 800 800", xmlns: "http://www.w3.org/2000/svg", children: [
-          /* @__PURE__ */ jsxDEV("circle", { cx: "400", cy: "400", r: "200", fill: "white", opacity: "0.3" }, void 0, false, {
-            fileName: "<stdin>",
-            lineNumber: 123,
-            columnNumber: 17
-          }),
-          /* @__PURE__ */ jsxDEV("circle", { cx: "200", cy: "200", r: "100", fill: "white", opacity: "0.2" }, void 0, false, {
-            fileName: "<stdin>",
-            lineNumber: 124,
-            columnNumber: 17
-          }),
-          /* @__PURE__ */ jsxDEV("circle", { cx: "600", cy: "600", r: "150", fill: "white", opacity: "0.2" }, void 0, false, {
-            fileName: "<stdin>",
-            lineNumber: 125,
-            columnNumber: 17
-          }),
-          /* @__PURE__ */ jsxDEV("path", { d: "M0,0 L800,800", stroke: "white", strokeWidth: "20", opacity: "0.1" }, void 0, false, {
-            fileName: "<stdin>",
-            lineNumber: 126,
-            columnNumber: 17
-          }),
-          /* @__PURE__ */ jsxDEV("path", { d: "M800,0 L0,800", stroke: "white", strokeWidth: "20", opacity: "0.1" }, void 0, false, {
-            fileName: "<stdin>",
-            lineNumber: 127,
-            columnNumber: 17
-          })
-        ] }, void 0, true, {
-          fileName: "<stdin>",
-          lineNumber: 122,
-          columnNumber: 15
-        }) }, void 0, false, {
-          fileName: "<stdin>",
-          lineNumber: 121,
-          columnNumber: 13
-        }),
-        /* @__PURE__ */ jsxDEV(Box, { sx: {
-          width: "120px",
-          height: "120px",
-          backgroundColor: "white",
-          borderRadius: "30px",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          boxShadow: "0 8px 16px rgba(0,0,0,0.2)",
-          mb: 4
-        }, children: /* @__PURE__ */ jsxDEV("svg", { width: "80", height: "80", viewBox: "0 0 24 24", fill: "none", xmlns: "http://www.w3.org/2000/svg", children: [
-          /* @__PURE__ */ jsxDEV("path", { d: "M20 4H4C2.89543 4 2 4.89543 2 6V18C2 19.1046 2.89543 20 4 20H20C21.1046 20 22 19.1046 22 18V6C22 4.89543 21.1046 4 20 4Z", stroke: "#4caf50", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, void 0, false, {
-            fileName: "<stdin>",
-            lineNumber: 144,
-            columnNumber: 17
-          }),
-          /* @__PURE__ */ jsxDEV("path", { d: "M2 8H22", stroke: "#4caf50", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, void 0, false, {
-            fileName: "<stdin>",
-            lineNumber: 145,
-            columnNumber: 17
-          }),
-          /* @__PURE__ */ jsxDEV("path", { d: "M6 4V8", stroke: "#4caf50", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, void 0, false, {
-            fileName: "<stdin>",
-            lineNumber: 146,
-            columnNumber: 17
-          }),
-          /* @__PURE__ */ jsxDEV("path", { d: "M18 4V8", stroke: "#4caf50", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, void 0, false, {
-            fileName: "<stdin>",
-            lineNumber: 147,
-            columnNumber: 17
-          }),
-          /* @__PURE__ */ jsxDEV("path", { d: "M10 12H14", stroke: "#4caf50", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, void 0, false, {
-            fileName: "<stdin>",
-            lineNumber: 148,
-            columnNumber: 17
-          }),
-          /* @__PURE__ */ jsxDEV("path", { d: "M12 10V14", stroke: "#4caf50", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, void 0, false, {
-            fileName: "<stdin>",
-            lineNumber: 149,
-            columnNumber: 17
-          }),
-          /* @__PURE__ */ jsxDEV("path", { d: "M8 14H8.01", stroke: "#4caf50", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, void 0, false, {
-            fileName: "<stdin>",
-            lineNumber: 150,
-            columnNumber: 17
-          }),
-          /* @__PURE__ */ jsxDEV("path", { d: "M16 14H16.01", stroke: "#4caf50", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, void 0, false, {
-            fileName: "<stdin>",
-            lineNumber: 151,
-            columnNumber: 17
-          }),
-          /* @__PURE__ */ jsxDEV("path", { d: "M8 17H8.01", stroke: "#4caf50", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, void 0, false, {
-            fileName: "<stdin>",
-            lineNumber: 152,
-            columnNumber: 17
-          }),
-          /* @__PURE__ */ jsxDEV("path", { d: "M12 17H12.01", stroke: "#4caf50", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, void 0, false, {
-            fileName: "<stdin>",
-            lineNumber: 153,
-            columnNumber: 17
-          }),
-          /* @__PURE__ */ jsxDEV("path", { d: "M16 17H16.01", stroke: "#4caf50", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, void 0, false, {
-            fileName: "<stdin>",
-            lineNumber: 154,
-            columnNumber: 17
-          })
-        ] }, void 0, true, {
-          fileName: "<stdin>",
-          lineNumber: 143,
-          columnNumber: 15
-        }) }, void 0, false, {
-          fileName: "<stdin>",
-          lineNumber: 132,
-          columnNumber: 13
-        }),
-        /* @__PURE__ */ jsxDEV(Typography, { variant: "h3", component: "h1", sx: { fontWeight: 700, textAlign: "center", mb: 2 }, children: "CRM Gold Credit" }, void 0, false, {
-          fileName: "<stdin>",
-          lineNumber: 159,
-          columnNumber: 13
-        }),
-        /* @__PURE__ */ jsxDEV(Typography, { variant: "h6", sx: {
-          textAlign: "center",
-          maxWidth: "500px",
-          mb: 5,
-          opacity: 0.9,
-          fontWeight: 400,
-          lineHeight: 1.6
-        }, children: "Gerencie seu pipeline, acompanhe leads e organize reuni\xF5es em uma \xFAnica plataforma integrada" }, void 0, false, {
-          fileName: "<stdin>",
-          lineNumber: 163,
-          columnNumber: 13
-        }),
-        /* @__PURE__ */ jsxDEV(Box, { sx: { display: "flex", flexDirection: "column", gap: 2.5, maxWidth: "400px" }, children: [
-          /* @__PURE__ */ jsxDEV(Box, { sx: { display: "flex", alignItems: "center", gap: 2 }, children: [
-            /* @__PURE__ */ jsxDEV(Box, { sx: {
-              width: 40,
-              height: 40,
-              borderRadius: "12px",
-              backgroundColor: "rgba(255,255,255,0.2)",
+
+  if (isAuthenticated && !loading) {
+    return <Navigate to="/" />;
+  }
+
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+
+      <Box
+        sx={{
+          minHeight: "100vh",
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+          position: "relative",
+          background: isMobile
+            ? "#e6ebe8"
+            : "linear-gradient(104deg, #34c46a 0%, #34c46a 47%, #e6ebe8 53%, #e6ebe8 100%)",
+        }}
+      >
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          sx={{
+            position: "absolute",
+            top: 18,
+            left: { xs: 16, md: 24 },
+            zIndex: 2,
+          }}
+        >
+          <Box component="img" src={logoMinimal} alt="Logo" sx={{ width: 44, height: 44, display: "block" }} />
+          <Typography sx={{ fontSize: 20, fontWeight: 700, color: "#10351f" }}>
+            CRM Leads
+          </Typography>
+        </Stack>
+
+        {!isMobile && (
+          <Box
+            sx={{
+              px: { md: 5, lg: 7 },
+              py: 6,
               display: "flex",
+              flexDirection: "column",
               justifyContent: "center",
-              alignItems: "center"
-            }, children: /* @__PURE__ */ jsxDEV("svg", { width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", xmlns: "http://www.w3.org/2000/svg", children: [
-              /* @__PURE__ */ jsxDEV("path", { d: "M8 16H6C4.89543 16 4 15.1046 4 14V6C4 4.89543 4.89543 4 6 4H18C19.1046 4 20 4.89543 20 6V14C20 15.1046 19.1046 16 18 16H16M8 16V17C8 18.1046 8.89543 19 10 19H14C15.1046 19 16 18.1046 16 17V16M8 16H16", stroke: "white", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, void 0, false, {
-                fileName: "<stdin>",
-                lineNumber: 187,
-                columnNumber: 21
-              }),
-              /* @__PURE__ */ jsxDEV("path", { d: "M12 12C13.1046 12 14 11.1046 14 10C14 8.89543 13.1046 8 12 8C10.8954 8 10 8.89543 10 10C10 11.1046 10.8954 12 12 12Z", stroke: "white", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, void 0, false, {
-                fileName: "<stdin>",
-                lineNumber: 188,
-                columnNumber: 21
-              })
-            ] }, void 0, true, {
-              fileName: "<stdin>",
-              lineNumber: 186,
-              columnNumber: 19
-            }) }, void 0, false, {
-              fileName: "<stdin>",
-              lineNumber: 177,
-              columnNumber: 17
-            }),
-            /* @__PURE__ */ jsxDEV(Typography, { variant: "body1", sx: { opacity: 0.9 }, children: "Gerencie leads e clientes em um \xFAnico local" }, void 0, false, {
-              fileName: "<stdin>",
-              lineNumber: 191,
-              columnNumber: 17
-            })
-          ] }, void 0, true, {
-            fileName: "<stdin>",
-            lineNumber: 176,
-            columnNumber: 15
-          }),
-          /* @__PURE__ */ jsxDEV(Box, { sx: { display: "flex", alignItems: "center", gap: 2 }, children: [
-            /* @__PURE__ */ jsxDEV(Box, { sx: {
-              width: 40,
-              height: 40,
-              borderRadius: "12px",
-              backgroundColor: "rgba(255,255,255,0.2)",
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center"
-            }, children: /* @__PURE__ */ jsxDEV("svg", { width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", xmlns: "http://www.w3.org/2000/svg", children: /* @__PURE__ */ jsxDEV("path", { d: "M16 4V8M8 4V8M4 12H20M4 8H20C21.1046 8 22 8.89543 22 10V18C22 19.1046 21.1046 20 20 20H4C2.89543 20 2 19.1046 2 18V10C2 8.89543 2.89543 8 4 8Z", stroke: "white", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, void 0, false, {
-              fileName: "<stdin>",
-              lineNumber: 207,
-              columnNumber: 21
-            }) }, void 0, false, {
-              fileName: "<stdin>",
-              lineNumber: 206,
-              columnNumber: 19
-            }) }, void 0, false, {
-              fileName: "<stdin>",
-              lineNumber: 197,
-              columnNumber: 17
-            }),
-            /* @__PURE__ */ jsxDEV(Typography, { variant: "body1", sx: { opacity: 0.9 }, children: "Agende e gerencie reuni\xF5es com notifica\xE7\xF5es" }, void 0, false, {
-              fileName: "<stdin>",
-              lineNumber: 210,
-              columnNumber: 17
-            })
-          ] }, void 0, true, {
-            fileName: "<stdin>",
-            lineNumber: 196,
-            columnNumber: 15
-          }),
-          /* @__PURE__ */ jsxDEV(Box, { sx: { display: "flex", alignItems: "center", gap: 2 }, children: [
-            /* @__PURE__ */ jsxDEV(Box, { sx: {
-              width: 40,
-              height: 40,
-              borderRadius: "12px",
-              backgroundColor: "rgba(255,255,255,0.2)",
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center"
-            }, children: /* @__PURE__ */ jsxDEV("svg", { width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", xmlns: "http://www.w3.org/2000/svg", children: [
-              /* @__PURE__ */ jsxDEV("path", { d: "M7 16C9.20914 16 11 14.2091 11 12C11 9.79086 9.20914 8 7 8C4.79086 8 3 9.79086 3 12C3 14.2091 4.79086 16 7 16Z", stroke: "white", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, void 0, false, {
-                fileName: "<stdin>",
-                lineNumber: 226,
-                columnNumber: 21
-              }),
-              /* @__PURE__ */ jsxDEV("path", { d: "M14 16L17 19L21 15", stroke: "white", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, void 0, false, {
-                fileName: "<stdin>",
-                lineNumber: 227,
-                columnNumber: 21
-              }),
-              /* @__PURE__ */ jsxDEV("path", { d: "M17 11V5C17 4.46957 16.7893 3.96086 16.4142 3.58579C16.0391 3.21071 15.5304 3 15 3H13", stroke: "white", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, void 0, false, {
-                fileName: "<stdin>",
-                lineNumber: 228,
-                columnNumber: 21
-              })
-            ] }, void 0, true, {
-              fileName: "<stdin>",
-              lineNumber: 225,
-              columnNumber: 19
-            }) }, void 0, false, {
-              fileName: "<stdin>",
-              lineNumber: 216,
-              columnNumber: 17
-            }),
-            /* @__PURE__ */ jsxDEV(Typography, { variant: "body1", sx: { opacity: 0.9 }, children: "Acompanhe e visualize seu pipeline" }, void 0, false, {
-              fileName: "<stdin>",
-              lineNumber: 231,
-              columnNumber: 17
-            })
-          ] }, void 0, true, {
-            fileName: "<stdin>",
-            lineNumber: 215,
-            columnNumber: 15
-          })
-        ] }, void 0, true, {
-          fileName: "<stdin>",
-          lineNumber: 175,
-          columnNumber: 13
-        })
-      ] }, void 0, true, {
-        fileName: "<stdin>",
-        lineNumber: 108,
-        columnNumber: 11
-      }),
-      /* @__PURE__ */ jsxDEV(Box, { sx: {
-        flex: isMobile ? "1" : "0 0 50%",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        alignItems: "center",
-        p: 3
-      }, children: /* @__PURE__ */ jsxDEV(Container, { maxWidth: "sm", children: /* @__PURE__ */ jsxDEV(Box, { sx: {
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        backgroundColor: "white",
-        p: 4,
-        borderRadius: 4,
-        boxShadow: "0px 8px 40px rgba(0, 0, 0, 0.12)",
-        width: "100%",
-        maxWidth: "450px",
-        mx: "auto"
-      }, children: [
-        /* @__PURE__ */ jsxDEV(Box, { sx: { width: "100%", mb: 4, textAlign: "center" }, children: [
-          /* @__PURE__ */ jsxDEV(
-            Avatar,
-            {
-              sx: {
-                m: "0 auto",
-                bgcolor: "#4caf50",
-                width: 56,
-                height: 56,
-                boxShadow: "0 4px 14px rgba(76, 175, 80, 0.4)"
-              },
-              children: /* @__PURE__ */ jsxDEV(LockOutlinedIcon, { fontSize: "large" }, void 0, false, {
-                fileName: "<stdin>",
-                lineNumber: 272,
-                columnNumber: 19
-              })
-            },
-            void 0,
-            false,
-            {
-              fileName: "<stdin>",
-              lineNumber: 263,
-              columnNumber: 17
-            }
-          ),
-          /* @__PURE__ */ jsxDEV(
-            Typography,
-            {
-              variant: "h4",
-              sx: {
-                mt: 2,
-                mb: 0.5,
+              alignItems: "center",
+              textAlign: "center",
+              backgroundColor: "transparent",
+            }}
+          >
+            <Typography sx={{ fontWeight: 800, fontSize: { md: 40, lg: 46 }, lineHeight: 1.1, color: "#073521" }}>
+              CRM para gestao de leads com foco em resultado
+            </Typography>
+            <Typography sx={{ mt: 2, fontWeight: 600, fontSize: 26, color: "#073521" }}>
+              Mais controle, menos friccao
+            </Typography>
+
+            <Stack spacing={1.1} sx={{ mt: 4, width: "100%", maxWidth: 520 }}>
+              <Typography sx={{ fontSize: 17, fontWeight: 500, color: "#083b24", textAlign: "center" }}>
+                Pipeline organizado
+              </Typography>
+              <Typography sx={{ fontSize: 17, fontWeight: 500, color: "#083b24", textAlign: "center" }}>
+                Reunioes e follow-up centralizados
+              </Typography>
+              <Typography sx={{ fontSize: 17, fontWeight: 500, color: "#083b24", textAlign: "center" }}>
+                Conversao acompanhada em tempo real
+              </Typography>
+            </Stack>
+
+            <Box
+              sx={{
+                mt: 4,
+                px: 4,
+                py: 1.3,
+                bgcolor: "#0d5b2d",
+                color: "#f8fafc",
                 fontWeight: 700,
-                color: grey[800]
-              },
-              children: "Bem-vindo(a)"
-            },
-            void 0,
-            false,
-            {
-              fileName: "<stdin>",
-              lineNumber: 275,
-              columnNumber: 17
-            }
-          ),
-          /* @__PURE__ */ jsxDEV(
-            Typography,
-            {
-              variant: "body1",
-              color: "text.secondary",
-              sx: { mb: 3 },
-              children: "Acesse sua conta para continuar"
-            },
-            void 0,
-            false,
-            {
-              fileName: "<stdin>",
-              lineNumber: 287,
-              columnNumber: 17
-            }
-          ),
-          error && /* @__PURE__ */ jsxDEV(
-            Alert,
-            {
-              severity: "error",
-              sx: {
-                mb: 3,
-                borderRadius: 2,
-                "& .MuiAlert-icon": { alignItems: "center" }
-              },
-              children: error
-            },
-            void 0,
-            false,
-            {
-              fileName: "<stdin>",
-              lineNumber: 296,
-              columnNumber: 19
-            }
-          )
-        ] }, void 0, true, {
-          fileName: "<stdin>",
-          lineNumber: 262,
-          columnNumber: 15
-        }),
-        /* @__PURE__ */ jsxDEV(
-          Box,
-          {
-            component: "form",
-            onSubmit: handleSubmit,
-            sx: { width: "100%" },
-            children: [
-              /* @__PURE__ */ jsxDEV(
-                TextField,
-                {
-                  variant: "outlined",
-                  margin: "normal",
-                  required: true,
-                  fullWidth: true,
-                  id: "email",
-                  label: "E-mail",
-                  name: "email",
-                  autoComplete: "email",
-                  autoFocus: true,
-                  value: email,
-                  onChange: (e) => setEmail(e.target.value),
-                  sx: { mb: 2 }
-                },
-                void 0,
-                false,
-                {
-                  fileName: "<stdin>",
-                  lineNumber: 315,
-                  columnNumber: 17
+                borderRadius: 3,
+                fontSize: 24,
+              }}
+            >
+              Quero evoluir o time
+            </Box>
+          </Box>
+        )}
+
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", px: 2.5, py: 3.5 }}>
+            <Box sx={{ width: "100%", maxWidth: 420 }}>
+            <Stack direction="row" justifyContent="center" alignItems="center" spacing={1.2} sx={{ mb: 2.8 }}>
+              <Typography sx={{ color: "#1c3d2b", fontWeight: 500, fontSize: 14 }}>
+                Ainda nao tem conta?
+              </Typography>
+              <Button
+                size="small"
+                sx={{
+                  minWidth: "auto",
+                  px: 1.8,
+                  py: 0.8,
+                  borderRadius: 2,
+                  bgcolor: "#c8eacc",
+                  color: "#1f6a31",
+                  fontWeight: 700,
+                  fontSize: 12,
+                  "&:hover": { bgcolor: "#b6e2bc" },
+                }}
+              >
+                Comece o teste gratis
+              </Button>
+            </Stack>
+
+              <Box
+                component="form"
+                onSubmit={handleSubmit}
+              sx={{
+                bgcolor: "#f7f8fa",
+                p: { xs: 3, sm: 4 },
+                borderRadius: 3.2,
+                boxShadow: "0 10px 28px rgba(15,23,42,0.12)",
+                border: "1px solid rgba(15,23,42,0.08)",
+              }}
+            >
+              <Typography sx={{ fontSize: 36, color: "#18452b", fontWeight: 800, mb: 1.2 }}>Ola!</Typography>
+
+              {error && <Alert severity="error" sx={{ mb: 2.2 }}>{error}</Alert>}
+
+              <Stack spacing={2}>
+                <TextField
+                  label="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  type="email"
+                  required
+                  disabled={isSubmitting}
+                  autoComplete="email"
+                  fullWidth
+                />
+
+                <TextField
+                  label="Senha"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  type={showPassword ? "text" : "password"}
+                  required
+                  disabled={isSubmitting}
+                  autoComplete="current-password"
+                  fullWidth
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          edge="end"
+                          onClick={() => setShowPassword((prev) => !prev)}
+                          aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                          disabled={isSubmitting}
+                        >
+                          {showPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Stack>
+
+              <Link
+                href="#"
+                underline="hover"
+                sx={{ display: "inline-block", mt: 1.8, color: "#1f8f4a", fontWeight: 700, fontSize: 14 }}
+              >
+                Esqueceu sua senha?
+              </Link>
+
+              <FormControlLabel
+                sx={{ mt: 1.8 }}
+                control={
+                  <Checkbox
+                    checked={rememberDevice}
+                    onChange={(e) => setRememberDevice(e.target.checked)}
+                  />
                 }
-              ),
-              /* @__PURE__ */ jsxDEV(
-                TextField,
-                {
-                  variant: "outlined",
-                  margin: "normal",
-                  required: true,
-                  fullWidth: true,
-                  name: "password",
-                  label: "Senha",
-                  type: "password",
-                  id: "password",
-                  autoComplete: "current-password",
-                  value: password,
-                  onChange: (e) => setPassword(e.target.value),
-                  sx: { mb: 2 }
-                },
-                void 0,
-                false,
-                {
-                  fileName: "<stdin>",
-                  lineNumber: 330,
-                  columnNumber: 17
-                }
-              ),
-              /* @__PURE__ */ jsxDEV(Box, { sx: { display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }, children: /* @__PURE__ */ jsxDEV(
-                Link,
-                {
-                  href: "#",
-                  variant: "body2",
-                  sx: {
-                    color: theme.palette.primary.main,
-                    textDecoration: "none",
-                    "&:hover": { textDecoration: "underline" }
-                  },
-                  onClick: (e) => e.preventDefault(),
-                  children: "Esqueceu a senha?"
-                },
-                void 0,
-                false,
-                {
-                  fileName: "<stdin>",
-                  lineNumber: 346,
-                  columnNumber: 19
-                }
-              ) }, void 0, false, {
-                fileName: "<stdin>",
-                lineNumber: 345,
-                columnNumber: 17
-              }),
-              /* @__PURE__ */ jsxDEV(
-                Button,
-                {
-                  type: "submit",
-                  fullWidth: true,
-                  variant: "contained",
-                  sx: {
-                    py: 1.5,
-                    fontSize: "1rem",
-                    fontWeight: 600,
-                    background: "linear-gradient(45deg, #4caf50 30%, #81c784 90%)",
-                    boxShadow: "0 3px 12px rgba(76, 175, 80, 0.3)",
-                    transition: "all 0.3s ease-in-out",
-                    "&:hover": {
-                      boxShadow: "0 6px 15px rgba(76, 175, 80, 0.4)",
-                      transform: "translateY(-2px)"
-                    }
-                  },
-                  children: "Entrar"
-                },
-                void 0,
-                false,
-                {
-                  fileName: "<stdin>",
-                  lineNumber: 360,
-                  columnNumber: 17
-                }
-              ),
-              /* @__PURE__ */ jsxDEV(Box, { sx: { mt: 3, textAlign: "center" }, children: /* @__PURE__ */ jsxDEV(Typography, { variant: "body2", color: "text.secondary", children: [
-                (/* @__PURE__ */ new Date()).getFullYear(),
-                " CRM Gold Credit"
-              ] }, void 0, true, {
-                fileName: "<stdin>",
-                lineNumber: 381,
-                columnNumber: 19
-              }) }, void 0, false, {
-                fileName: "<stdin>",
-                lineNumber: 380,
-                columnNumber: 17
-              })
-            ]
-          },
-          void 0,
-          true,
-          {
-            fileName: "<stdin>",
-            lineNumber: 310,
-            columnNumber: 15
-          }
-        )
-      ] }, void 0, true, {
-        fileName: "<stdin>",
-        lineNumber: 249,
-        columnNumber: 13
-      }) }, void 0, false, {
-        fileName: "<stdin>",
-        lineNumber: 248,
-        columnNumber: 11
-      }) }, void 0, false, {
-        fileName: "<stdin>",
-        lineNumber: 240,
-        columnNumber: 9
-      })
-    ] }, void 0, true, {
-      fileName: "<stdin>",
-      lineNumber: 99,
-      columnNumber: 7
-    })
-  ] }, void 0, true, {
-    fileName: "<stdin>",
-    lineNumber: 97,
-    columnNumber: 5
-  });
-};
-var stdin_default = Login;
-export {
-  stdin_default as default
-};
+                label={<Typography sx={{ color: "#30485d", fontSize: 14 }}>Lembrar deste dispositivo por 14 dias</Typography>}
+              />
+
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={isSubmitting}
+                fullWidth
+                sx={{
+                  mt: 1.6,
+                  py: 1.3,
+                  borderRadius: 2.3,
+                  bgcolor: "#1f8f4a",
+                  fontSize: 18,
+                  fontWeight: 700,
+                  "&:hover": { bgcolor: "#18743b" },
+                }}
+              >
+                {isSubmitting ? "Entrando..." : "Avancar"}
+              </Button>
+
+                <Button
+                  fullWidth
+                sx={{
+                  mt: 1,
+                  color: "#1f8f4a",
+                  fontWeight: 700,
+                  fontSize: 17,
+                  textTransform: "none",
+                }}
+                >
+                  Entrar com SSO
+                </Button>
+              </Box>
+
+              <Stack
+                direction="row"
+                justifyContent="space-between"
+                alignItems="center"
+                sx={{ mt: 2.4, px: 0.5 }}
+              >
+                <Link
+                  href="#"
+                  underline="none"
+                  sx={{ color: "#9ca3af", fontSize: 13, fontWeight: 600 }}
+                >
+                  Política de privacidade
+                </Link>
+                <Button
+                  variant="text"
+                  endIcon={<ArrowDropDownIcon />}
+                  sx={{
+                    minWidth: "auto",
+                    px: 0,
+                    color: "#0b6ea7",
+                    fontWeight: 700,
+                    textTransform: "none",
+                    fontSize: 16,
+                  }}
+                >
+                  Português
+                </Button>
+              </Stack>
+            </Box>
+          </Box>
+        </Box>
+    </ThemeProvider>
+  );
+}

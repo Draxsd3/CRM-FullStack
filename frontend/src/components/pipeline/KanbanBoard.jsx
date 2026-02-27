@@ -1,12 +1,13 @@
 import { Fragment, jsxDEV } from "react/jsx-dev-runtime";
 import React, { useState, useEffect, useContext, useRef } from "react";
 import { DragDropContext } from "@hello-pangea/dnd";
-import { Grid, Typography, Paper, Dialog, TextField, DialogTitle, DialogContent, DialogActions, Button, FormControlLabel, Switch } from "@mui/material";
+import { Grid, Typography, Paper, Dialog, TextField, DialogTitle, DialogContent, DialogActions, Button, FormControlLabel, Switch, Box } from "@mui/material";
 import { toast } from "react-toastify";
 import KanbanColumn from "./KanbanColumn";
 import RescheduleDialog from "./RescheduleDialog";
 import pipelineService from "../../services/pipelineService";
 import { AuthContext } from "../../contexts/AuthContext";
+import LoadingScreen from "../ui/LoadingScreen";
 const PIPELINE_STAGES = [
   "Lead",
   "Reuni\xE3o Agendada",
@@ -49,8 +50,15 @@ const KanbanBoard = () => {
   const [openRescheduleDialog, setOpenRescheduleDialog] = useState(false);
   const [changeAssignedUser, setChangeAssignedUser] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isPanningBoard, setIsPanningBoard] = useState(false);
   const refreshIntervalRef = useRef(null);
   const lastFetchTimeRef = useRef(0);
+  const boardScrollRef = useRef(null);
+  const panStateRef = useRef({
+    active: false,
+    startX: 0,
+    startScrollLeft: 0
+  });
   const { user } = useContext(AuthContext);
   const fetchPipelineData = async (force = false) => {
     if (isDragging && !force) {
@@ -222,8 +230,65 @@ const KanbanBoard = () => {
     } else {
     }
   };
+  const shouldIgnorePanStart = (target) => {
+    if (!target || typeof target.closest !== "function") {
+      return false;
+    }
+    return Boolean(
+      target.closest(
+        '[data-rfd-draggable-id], [data-rfd-drag-handle-draggable-id], button, a, input, textarea, select, [role="button"], [contenteditable="true"]'
+      )
+    );
+  };
+  const handleBoardMouseDown = (event) => {
+    if (event.button !== 0) {
+      return;
+    }
+    if (shouldIgnorePanStart(event.target)) {
+      return;
+    }
+    const board = boardScrollRef.current;
+    if (!board) {
+      return;
+    }
+    panStateRef.current = {
+      active: true,
+      startX: event.clientX,
+      startScrollLeft: board.scrollLeft
+    };
+    setIsPanningBoard(true);
+  };
+  const handleBoardMouseMove = (event) => {
+    if (!panStateRef.current.active) {
+      return;
+    }
+    const board = boardScrollRef.current;
+    if (!board) {
+      return;
+    }
+    const deltaX = event.clientX - panStateRef.current.startX;
+    board.scrollLeft = panStateRef.current.startScrollLeft - deltaX;
+    event.preventDefault();
+  };
+  const handleBoardMouseUp = () => {
+    if (!panStateRef.current.active) {
+      return;
+    }
+    panStateRef.current.active = false;
+    setIsPanningBoard(false);
+  };
+  useEffect(() => {
+    const onMouseMove = (event) => handleBoardMouseMove(event);
+    const onMouseUp = () => handleBoardMouseUp();
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, []);
   if (loading && !columns["Lead"]) {
-    return /* @__PURE__ */ jsxDEV(Typography, { children: "Carregando pipeline..." }, void 0, false, {
+    return /* @__PURE__ */ jsxDEV(LoadingScreen, { message: "Carregando pipeline..." }, void 0, false, {
       fileName: "<stdin>",
       lineNumber: 321,
       columnNumber: 12
@@ -231,15 +296,26 @@ const KanbanBoard = () => {
   }
   return /* @__PURE__ */ jsxDEV(Fragment, { children: [
     /* @__PURE__ */ jsxDEV(DragDropContext, { onDragStart, onDragEnd, children: /* @__PURE__ */ jsxDEV(
+      Box,
+      {
+        ref: boardScrollRef,
+        onMouseDown: handleBoardMouseDown,
+        sx: {
+          overflowX: "auto",
+          py: 2,
+          minHeight: "70vh",
+          cursor: isPanningBoard ? "grabbing" : "grab",
+          userSelect: isPanningBoard ? "none" : "auto"
+        },
+        children: /* @__PURE__ */ jsxDEV(
       Grid,
       {
         container: true,
         spacing: 2,
         sx: {
-          overflowX: "auto",
           flexWrap: "nowrap",
-          py: 2,
-          minHeight: "70vh"
+          minHeight: "70vh",
+          width: "max-content"
         },
         children: PIPELINE_STAGES.map((stage) => /* @__PURE__ */ jsxDEV(
           Grid,
@@ -291,6 +367,15 @@ const KanbanBoard = () => {
             columnNumber: 13
           }
         ))
+      },
+      void 0,
+      false,
+      {
+        fileName: "<stdin>",
+        lineNumber: 327,
+        columnNumber: 9
+      }
+    )
       },
       void 0,
       false,

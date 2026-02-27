@@ -4,14 +4,11 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const path = require('path');
-const sequelize = require('./config/database');
+const fs = require('fs');
+const connectDB = require('./config/database');
 
-// Import models to ensure they're loaded
-const User = require('./models/User');
-const Company = require('./models/Company');
-const Meeting = require('./models/Meeting');
-const PipelineHistory = require('./models/PipelineHistory');
-const KYCReport = require('./models/KYCReport');
+// Load environment variables
+dotenv.config();
 
 // Import routes
 const companyRoutes = require('./routes/companyRoutes');
@@ -20,144 +17,91 @@ const pipelineRoutes = require('./routes/pipelineRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const userRoutes = require('./routes/userRoutes');
 
-// Load environment variables
-dotenv.config();
-
 const app = express();
+const uploadsDir = path.join(__dirname, 'uploads');
 
-// Middlewares
-/* @tweakable CORS configuration */
+// Ensure uploads dir exists on server startup
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// CORS
 const corsOptions = {
-  /** 
-   * @tweakable Allow specific origins
-   * Comma-separated list of allowed origins 
-   */
-  origin: process.env.ALLOWED_ORIGINS || '*', 
-
-  /** 
-   * @tweakable Maximum age of CORS preflight request cache 
-   */
+  origin: process.env.ALLOWED_ORIGINS || '*',
   maxAge: process.env.CORS_MAX_AGE || 86400,
-
-  /** 
-   * @tweakable Allowed HTTP methods 
-   */
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 };
-
 app.use(cors(corsOptions));
 
-// Security middleware
+// Security & logging
 app.use(helmet());
-
-// Logging middleware
 app.use(morgan('dev'));
 
-// Body parsing middleware
+// Body parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files from uploads directory
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Static files
+app.use('/uploads', express.static(uploadsDir));
 
-// ---- FIX: Prefix all API routes with '/api' only, NOT '/' ----
-// All frontend calls are made to '/api/companies', etc.
-
-// These are correct:
+// API routes
 app.use('/api/companies', companyRoutes);
 app.use('/api/meetings', meetingRoutes);
 app.use('/api/pipeline', pipelineRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/users', userRoutes);
 
-// Health check endpoint
+// Health check
 app.get('/api/health', (req, res) => {
-  res.json({ success: true, message: 'API is running' });
+  res.json({ success: true, message: 'API is running (MongoDB)' });
 });
 
-// Serve static files from frontend build in production
+// Serve frontend in production
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '..', 'frontend', 'build')));
 }
 
-// ---- FIX: API 404 handler should come BEFORE React SPA fallback ----
+// API 404
 app.use('/api/*', (req, res) => {
-  res.status(404).json({
-    success: false,
-    error: 'Rota da API não encontrada'
-  });
+  res.status(404).json({ success: false, error: 'Rota da API não encontrada' });
 });
 
-// ---- FIX: React SPA fallback - serve index.html for all non-API routes ----
+// SPA fallback
 app.get('*', (req, res) => {
   if (process.env.NODE_ENV === 'production') {
     res.sendFile(path.join(__dirname, '..', 'frontend', 'build', 'index.html'));
   } else {
-    // In development, let Create React App handle routing
     res.status(404).json({
       success: false,
-      error: 'Esta é uma aplicação SPA. Use http://localhost:3000 para desenvolvimento.'
+      error: 'Esta é uma aplicação SPA. Use http://localhost:3000 para desenvolvimento.',
     });
   }
 });
 
-// Error handling middleware
+// Error handler
 app.use((err, req, res, next) => {
-  /* @tweakable Error logging configuration */
   const logErrorDetails = process.env.NODE_ENV === 'development';
-
   console.error('Global Error Handler:', err);
   res.status(err.statusCode || 500).json({
     success: false,
     error: err.message || 'Erro interno do servidor',
-    ...(logErrorDetails && { stack: err.stack })
+    ...(logErrorDetails && { stack: err.stack }),
   });
 });
 
-// 404 handler for undefined routes
-app.use((req, res, next) => {
-  res.status(404).json({
-    success: false,
-    error: 'Rota não encontrada'
-  });
-});
-
-// Database connection and server start
-/** @tweakable Server port */
+// Start server
 const PORT = process.env.PORT || 3001;
 
-// Improved database connection method with better error handling
 const startServer = async () => {
   try {
-    // Test database connection
-    await sequelize.authenticate();
-    console.log('Database connection has been established successfully.');
-    
-    // Use force: false and alter: false to prevent problematic table modifications
-    /** @tweakable Database synchronization strategy */
-    const syncOptions = {
-      /* 
-       * @tweakable Synchronization behavior
-       * - false: No changes to database structure
-       * - true: Create tables if they don't exist
-       * - 'alter': Alter existing tables to match model
-       */
-      force: false, // Never drop tables
-      alter: false, // Don't alter existing tables to prevent datetime issues
-      /** @tweakable Whether to log SQL statements */
-      logging: false // Disable to reduce noise
-    };
-    
-    await sequelize.sync(syncOptions);
-    
-    console.log('Database models synchronized successfully.');
-    
-    // Start the server
+    await connectDB();
+    console.log('MongoDB connected successfully.');
+
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });
   } catch (error) {
-    console.error('Unable to connect to the database:', error);
+    console.error('Unable to start server:', error);
     process.exit(1);
   }
 };

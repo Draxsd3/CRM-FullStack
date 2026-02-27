@@ -3,72 +3,67 @@ const User = require('../models/User');
 
 const auth = async (req, res, next) => {
   try {
-    // Skip authentication for login route
     if (req.path === '/login' && req.method === 'POST') {
       return next();
     }
 
-    // Get token from header
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader) {
-      return res.status(401).json({ 
-        success: false, 
-        error: 'Token de autenticação não fornecido' 
+      return res.status(401).json({
+        success: false,
+        error: 'Token de autenticação não fornecido',
       });
     }
 
     const token = authHeader.split(' ')[1];
-    
+
     if (!token) {
-      return res.status(401).json({ 
-        success: false, 
-        error: 'Token de autenticação inválido' 
+      return res.status(401).json({
+        success: false,
+        error: 'Token de autenticação inválido',
       });
     }
 
-    // Verify token with more robust options
     const decoded = jwt.verify(token, process.env.JWT_SECRET, {
       algorithms: ['HS256'],
       maxAge: '24h',
-      issuer: 'SecuritizadoraCRM'
+      issuer: 'CRMLeads',
     });
 
-    const user = await User.findByPk(decoded.id, {
-      attributes: { exclude: ['password'] }
-    });
-    
+    const user = await User.findById(decoded.id).select('-password');
+
     if (!user) {
-      return res.status(401).json({ 
-        success: false, 
-        error: 'Usuário não encontrado' 
+      return res.status(401).json({
+        success: false,
+        error: 'Usuário não encontrado',
       });
     }
 
-    req.user = user.toJSON(); // Convert to plain object to avoid Sequelize issues
+    req.user = user.toObject();
     next();
   } catch (error) {
     console.error('Authentication Error:', error);
-    
+
     if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ 
-        success: false, 
+      return res.status(401).json({
+        success: false,
         error: 'Token inválido',
-        details: error.message 
+        details: error.message,
       });
     }
-    
+
     if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ 
-        success: false, 
+      return res.status(401).json({
+        success: false,
         error: 'Token expirado',
-        details: 'Faça login novamente' 
+        details: 'Faça login novamente',
       });
     }
-    
-    res.status(500).json({ 
-      success: false, 
-      error: 'Erro interno de autenticação' 
+
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno de autenticação',
     });
   }
 };

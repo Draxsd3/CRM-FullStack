@@ -1,320 +1,249 @@
-const Company = require('../models/Company');
+﻿const Company = require('../models/Company');
 const PipelineHistory = require('../models/PipelineHistory');
 const User = require('../models/User');
-const sequelize = require('../config/database');
-const { Op } = require('sequelize');
+const mongoose = require('mongoose');
 
-// Pipeline stages
 const PIPELINE_STAGES = [
   'Lead',
-  'Reunião Agendada', 
-  'Reunião Realizada',
-  'Reunião Cancelada',
-  'Aguardando Documentação', 
-  'Cadastro Efetivado', 
-  'Cliente Operando'
+  'Reuni\u00e3o Agendada',
+  'Reuni\u00e3o Realizada',
+  'Reuni\u00e3o Cancelada',
+  'Aguardando Documenta\u00e7\u00e3o',
+  'Cadastro Efetivado',
+  'Cliente Operando',
 ];
 
-// Pipeline stages by user role
-/* @tweakable Pipeline stages configuration */
-const PIPELINE_STAGES_BY_ROLE = {
-  'SDR': [
-    'Lead',
-    'Reunião Agendada',
-    'Reunião Realizada',
-    'Reunião Cancelada'
-  ],
-  'Closer': [
-    'Reunião Agendada',
-    'Reunião Realizada',
-    'Reunião Cancelada',
-    'Aguardando Documentação',
-    'Cadastro Efetivado',
-    'Cliente Operando'
-  ],
-  'ADM': [
-    'Lead',
-    'Reunião Agendada',
-    'Reunião Realizada',
-    'Aguardando Documentação',
-    'Aguardando Cadastro',
-    'Cadastro Efetivado',
-    'Cliente Operando'
-  ],
-  'Supervisor': [
-    'Lead',
-    'Reunião Agendada',
-    'Reunião Realizada',
-    'Aguardando Documentação',
-    'Aguardando Cadastro',
-    'Cadastro Efetivado',
-    'Cliente Operando'
-  ]
+const normalizePipelineStatus = (status) => {
+  const raw = String(status || '').trim();
+  const ascii = raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s]/g, '')
+    .toLowerCase();
+
+  if (ascii === 'lead') return 'Lead';
+  if (ascii.includes('reuniao agendada') || ascii.includes('reunio agendada')) return 'Reuni\u00e3o Agendada';
+  if (ascii.includes('reuniao realizada') || ascii.includes('reunio realizada')) return 'Reuni\u00e3o Realizada';
+  if (ascii.includes('reuniao cancelada') || ascii.includes('reunio cancelada')) return 'Reuni\u00e3o Cancelada';
+  if (ascii.includes('aguardando documentacao') || ascii.includes('aguardando documentao')) return 'Aguardando Documenta\u00e7\u00e3o';
+  if (ascii === 'cadastro efetivado') return 'Cadastro Efetivado';
+  if (ascii === 'cliente operando') return 'Cliente Operando';
+
+  return raw;
 };
 
-// Get companies grouped by pipeline status - CRITICAL FIX
+const TRANSACTION_UNSUPPORTED_PATTERNS = [
+  'Transaction numbers are only allowed on a replica set member or mongos',
+  'transactions are not supported',
+  'Transaction not supported',
+];
+// Force disable transactions for standalone MongoDB environments.
+// This CRM runs locally without replica set in most cases.
+const USE_TRANSACTIONS = false;
+
+const isTransactionUnsupportedError = (error) => {
+  const message = String(
+    error?.message || error?.errorResponse?.errmsg || error?.cause?.message || ''
+  );
+  return TRANSACTION_UNSUPPORTED_PATTERNS.some((pattern) => message.includes(pattern));
+};
+
+const withOptionalTransaction = async (operation) => {
+  if (!USE_TRANSACTIONS) {
+    return await operation(null);
+  }
+
+  let session = null;
+  try {
+    session = await mongoose.startSession();
+    session.startTransaction();
+    const result = await operation(session);
+    await session.commitTransaction();
+    return result;
+  } catch (error) {
+    if (session && session.inTransaction()) {
+      try {
+        await session.abortTransaction();
+      } catch (_) {
+      }
+    }
+
+    if (isTransactionUnsupportedError(error)) {
+      return await operation(null);
+    }
+
+    throw error;
+  } finally {
+    if (session) {
+      session.endSession();
+    }
+  }
+};
+
+// Get companies grouped by pipeline status
 exports.getPipelineCompanies = async (userId, userRole) => {
-  // Get the appropriate pipeline stages for this user's role
-  const pipelineStages = PIPELINE_STAGES;
-  
-  // Create an object with pipeline stages as empty arrays
-  const pipelineData = pipelineStages.reduce((acc, stage) => {
+  const pipelineData = PIPELINE_STAGES.reduce((acc, stage) => {
     acc[stage] = [];
     return acc;
   }, {});
-  
-  // Setup the query - no user filtering for shared pipeline
-  let query = {};
-  
-  /* @tweakable Pipeline sharing configuration */
-  const PIPELINE_CONFIG = {
-    SHARED_PIPELINE: true,
-    FILTER_DISQUALIFIED: true
-  };
-  
-  // Only apply filters for disqualified leads if configured
-  if (PIPELINE_CONFIG.FILTER_DISQUALIFIED) {
-    query.qualificationStatus = {
-      [Op.ne]: 'Lead Desqualificado'
+
+  const companies = await Company.find({
+    qualificationStatus: { $ne: 'Lead Desqualificado' },
+  })
+    .select('id name cnpj contactName contactPhone email pipelineStatus qualificationStatus createdAt updatedAt assignedUserId ownerType')
+    .populate('assignedUserId', 'id name role')
+    .lean();
+
+  companies.forEach((company) => {
+    const mapped = {
+      ...company,
+      id: company._id,
+      AssignedUser: company.assignedUserId
+        ? { id: company.assignedUserId._id, name: company.assignedUserId.name, role: company.assignedUserId.role }
+        : null,
     };
-  }
-  
-  console.log('🔍 Fetching pipeline companies with query:', query);
-  
-  // Get companies based on the query
-  const companies = await Company.findAll({
-    attributes: [
-      'id', 'name', 'cnpj', 'contactName', 
-      'contactPhone', 'email', 'pipelineStatus', 'qualificationStatus',
-      'createdAt', 'updatedAt', 'assignedUserId', 'ownerType'
-    ],
-    where: query,
-    include: [
-      {
-        model: User,
-        as: 'AssignedUser',
-        attributes: ['id', 'name', 'role']
-      }
-    ]
-  });
-  
-  console.log(`📊 Found ${companies.length} total companies`);
-  
-  // Count companies by status
-  const statusCounts = {};
-  PIPELINE_STAGES.forEach(stage => {
-    statusCounts[stage] = 0;
-  });
-  
-  // Group companies by pipeline stage
-  companies.forEach(company => {
-    const status = company.pipelineStatus;
+
+    const status = normalizePipelineStatus(company.pipelineStatus);
+    mapped.pipelineStatus = status;
     if (pipelineData[status]) {
-      pipelineData[status].push(company);
-      statusCounts[status] = (statusCounts[status] || 0) + 1;
-    } else {
-      console.warn(`⚠️ Company ${company.id} has invalid status: ${status}`);
+      pipelineData[status].push(mapped);
     }
   });
-  
-  // Log counts for each status
-  console.log('📊 Companies by status:', statusCounts);
-  
-  // Specifically log Lead count
-  console.log(`📋 Lead Count: ${pipelineData['Lead'].length}`);
-  if (pipelineData['Lead'].length > 0) {
-    console.log('📋 Sample Lead:', {
-      id: pipelineData['Lead'][0].id,
-      name: pipelineData['Lead'][0].name,
-      status: pipelineData['Lead'][0].pipelineStatus
-    });
-  }
-  
+
   return pipelineData;
 };
 
-// Update company pipeline status with role validation and user tracking
+// Update company pipeline status
 exports.updateCompanyStatus = async (companyId, newStatus, observations, qualificationStatus = null, userId = null, shouldChangeAssignedUser = false) => {
-  const transaction = await sequelize.transaction();
+  const normalizedStatus = normalizePipelineStatus(newStatus);
+  if (!companyId || !normalizedStatus) throw new Error('ID da empresa e novo status sao obrigatorios');
+  if (!observations || observations.trim() === '') throw new Error('Observacao e obrigatoria');
 
-  try {
-    // Validate input parameters
-    if (!companyId || !newStatus) {
-      throw new Error('ID da empresa e novo status são obrigatórios');
+  return withOptionalTransaction(async (session) => {
+    let query = Company.findById(companyId).populate('assignedUserId', 'id name role');
+    if (session) {
+      query = query.session(session);
     }
 
-    if (!observations || observations.trim() === '') {
-      throw new Error('Observação é obrigatória');
-    }
-
-    // Find the company within the transaction
-    const company = await Company.findByPk(companyId, { 
-      transaction,
-      include: [
-        {
-          model: User,
-          as: 'AssignedUser',
-          attributes: ['id', 'name', 'role']
-        }
-      ]
-    });
-    
-    if (!company) {
-      await transaction.rollback();
-      throw new Error('Empresa não encontrada');
-    }
+    const company = await query;
+    if (!company) throw new Error('Empresa nao encontrada');
 
     const oldStatus = company.pipelineStatus;
-    const oldAssignedUserId = company.assignedUserId;
+    const oldAssignedUserId = company.assignedUserId?._id || company.assignedUserId;
 
-    // Get the current user who is making the change
-    const currentUser = userId ? await User.findByPk(userId) : null;
-    
-    // Only prepare assignment update if explicitly requested via shouldChangeAssignedUser flag
-    let assignmentUpdate = {};
     if (shouldChangeAssignedUser && userId) {
-      assignmentUpdate = { assignedUserId: userId };
+      company.assignedUserId = userId;
     }
 
-    // Update company status and assigned user if requested
-    await company.update(
-      {
-        pipelineStatus: newStatus,
-        ...assignmentUpdate, // Only update assignedUserId if explicitly requested
-        ...(qualificationStatus && { qualificationStatus })
-      },
-      { transaction }
-    );
+    company.pipelineStatus = normalizedStatus;
+    if (qualificationStatus) company.qualificationStatus = qualificationStatus;
 
-    // Create pipeline history record that always tracks who made the change
-    await PipelineHistory.create(
-      {
-        companyId: company.id,
-        previousStatus: oldStatus,
-        newStatus: newStatus,
-        observations: observations,
-        qualificationStatus,
-        userId: userId, // Who made the change
-        previousAssignedUserId: oldAssignedUserId,
-        newAssignedUserId: shouldChangeAssignedUser ? userId : null // Only set if user explicitly changed
-      },
-      { transaction }
-    );
+    if (session) {
+      await company.save({ session });
+    } else {
+      await company.save();
+    }
 
-    await transaction.commit();
+    const historyPayload = [{
+      companyId: company._id,
+      previousStatus: oldStatus,
+      newStatus: normalizedStatus,
+      observations,
+      qualificationStatus,
+      userId,
+      previousAssignedUserId: oldAssignedUserId,
+      newAssignedUserId: shouldChangeAssignedUser ? userId : null,
+    }];
+
+    if (session) {
+      await PipelineHistory.create(historyPayload, { session });
+    } else {
+      await PipelineHistory.create(historyPayload);
+    }
 
     return {
       company,
       statusChange: {
         from: oldStatus,
-        to: newStatus,
+        to: normalizedStatus,
         date: new Date(),
-        userId: userId,
-        assignmentChanged: shouldChangeAssignedUser && userId !== null && oldAssignedUserId !== userId
-      }
+        userId,
+        assignmentChanged: shouldChangeAssignedUser && userId && String(oldAssignedUserId) !== String(userId),
+      },
     };
-  } catch (error) {
-    await transaction.rollback();
-    console.error('Pipeline Status Update Error:', error);
-    throw error;
-  }
+  });
 };
 
 // Transfer company to Closer
-exports.transferToCloser = async (companyId, closerId, observations) => {
-  const transaction = await sequelize.transaction();
-  
-  try {
-    // Validate company exists
-    const company = await Company.findByPk(companyId, { transaction });
-    
-    if (!company) {
-      await transaction.rollback();
-      throw new Error('Empresa não encontrada');
+exports.transferToCloser = async (companyId, currentUserId, closerId, observations) => {
+  return withOptionalTransaction(async (session) => {
+    let query = Company.findById(companyId);
+    if (session) {
+      query = query.session(session);
     }
-    
-    // Validate closer exists and is actually a Closer
-    const closer = await User.findByPk(closerId);
-    
-    if (!closer || closer.role !== 'Closer') {
-      await transaction.rollback();
-      throw new Error('Closer inválido');
-    }
-    
-    /* @tweakable Default status when transferring to a Closer */
-    const CLOSER_DEFAULT_STATUS = 'Reunião Agendada';
-    
+
+    const company = await query;
+    if (!company) throw new Error('Empresa nao encontrada');
+
+    const closer = await User.findById(closerId);
+    if (!closer || closer.role !== 'Closer') throw new Error('Closer invalido');
+
+    const CLOSER_DEFAULT_STATUS = 'Reuni\u00e3o Agendada';
     const oldStatus = company.pipelineStatus;
     const oldOwnerType = company.ownerType;
     const oldAssignedUserId = company.assignedUserId;
-    
-    // Update company
-    await company.update({
-      assignedUserId: closerId,
-      ownerType: 'Closer',
-      pipelineStatus: CLOSER_DEFAULT_STATUS,
-      lastTransferDate: new Date()
-    }, { transaction });
-    
-    // Record transfer in history
-    await PipelineHistory.create({
-      companyId: company.id,
+
+    company.assignedUserId = closerId;
+    company.ownerType = 'Closer';
+    company.pipelineStatus = CLOSER_DEFAULT_STATUS;
+    company.lastTransferDate = new Date();
+
+    if (session) {
+      await company.save({ session });
+    } else {
+      await company.save();
+    }
+
+    const historyPayload = [{
+      companyId: company._id,
       previousStatus: oldStatus,
       newStatus: CLOSER_DEFAULT_STATUS,
       previousOwnerType: oldOwnerType,
       newOwnerType: 'Closer',
-      /* @tweakable Transfer history data tracking */
-      transferData: JSON.stringify({
-        fromUserId: oldAssignedUserId,
-        toUserId: closerId,
-        date: new Date()
-      }),
       observations: observations || 'Empresa transferida para Closer',
       previousAssignedUserId: oldAssignedUserId,
       newAssignedUserId: closerId,
-      userId: closerId // Who performed the action
-    }, { transaction });
-    
-    await transaction.commit();
-    
+      userId: closerId,
+    }];
+
+    if (session) {
+      await PipelineHistory.create(historyPayload, { session });
+    } else {
+      await PipelineHistory.create(historyPayload);
+    }
+
     return company;
-  } catch (error) {
-    await transaction.rollback();
-    throw error;
-  }
+  });
 };
 
 // Get pipeline history for a company
 exports.getCompanyPipelineHistory = async (companyId) => {
-  // Validate company exists
-  const company = await Company.findByPk(companyId);
-  
-  if (!company) {
-    throw new Error('Empresa não encontrada');
-  }
-  
-  // Get all history entries for this company with user information
-  const history = await PipelineHistory.findAll({
-    where: { companyId },
-    include: [
-      {
-        model: User,
-        as: 'User',
-        attributes: ['id', 'name', 'role']
-      },
-      {
-        model: User,
-        as: 'PreviousAssignedUser',
-        attributes: ['id', 'name', 'role']
-      },
-      {
-        model: User,
-        as: 'NewAssignedUser',
-        attributes: ['id', 'name', 'role']
-      }
-    ],
-    order: [['changeDate', 'DESC']]
-  });
-  
-  return history;
+  const company = await Company.findById(companyId);
+  if (!company) throw new Error('Empresa nao encontrada');
+
+  const history = await PipelineHistory.find({ companyId })
+    .populate('userId', 'id name role')
+    .populate('previousAssignedUserId', 'id name role')
+    .populate('newAssignedUserId', 'id name role')
+    .sort({ changeDate: -1 })
+    .lean();
+
+  return history.map((h) => ({
+    ...h,
+    id: h._id,
+    User: h.userId ? { id: h.userId._id, name: h.userId.name, role: h.userId.role } : null,
+    PreviousAssignedUser: h.previousAssignedUserId ? { id: h.previousAssignedUserId._id, name: h.previousAssignedUserId.name, role: h.previousAssignedUserId.role } : null,
+    NewAssignedUser: h.newAssignedUserId ? { id: h.newAssignedUserId._id, name: h.newAssignedUserId.name, role: h.newAssignedUserId.role } : null,
+  }));
 };
+

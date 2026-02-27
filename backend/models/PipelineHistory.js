@@ -1,125 +1,98 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
-const Company = require('./Company');
-const User = require('./User');
+﻿const mongoose = require('mongoose');
 
-const PipelineHistory = sequelize.define('PipelineHistory', {
-  id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true,
-  },
-  companyId: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    references: {
-      model: Company,
-      key: 'id',
+const PIPELINE_STATUS_ALIASES = {
+  Lead: ['Lead'],
+  ReuniaoAgendada: ['Reunião Agendada', 'Reuniao Agendada', 'ReuniÃ£o Agendada'],
+  ReuniaoRealizada: ['Reunião Realizada', 'Reuniao Realizada', 'ReuniÃ£o Realizada'],
+  ReuniaoCancelada: ['Reunião Cancelada', 'Reuniao Cancelada', 'ReuniÃ£o Cancelada'],
+  AguardandoDocumentacao: ['Aguardando Documentação', 'Aguardando Documentacao', 'Aguardando DocumentaÃ§Ã£o'],
+  CadastroEfetivado: ['Cadastro Efetivado'],
+  ClienteOperando: ['Cliente Operando'],
+};
+
+const PIPELINE_STATUSES = Object.values(PIPELINE_STATUS_ALIASES).flat();
+
+const pipelineHistorySchema = new mongoose.Schema(
+  {
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Company',
+      required: true,
+    },
+    previousStatus: {
+      type: String,
+      enum: [...PIPELINE_STATUSES, null],
+      default: null,
+    },
+    newStatus: {
+      type: String,
+      enum: PIPELINE_STATUSES,
+      required: true,
+      default: 'Lead',
+    },
+    previousOwnerType: {
+      type: String,
+      enum: ['SDR', 'Closer', null],
+      default: null,
+    },
+    newOwnerType: {
+      type: String,
+      enum: ['SDR', 'Closer', null],
+      default: null,
+    },
+    qualificationStatus: {
+      type: String,
+      enum: ['Lead Qualificado', 'Lead Desqualificado', null],
+      default: null,
+    },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    previousAssignedUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    newAssignedUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    changeDate: {
+      type: Date,
+      default: Date.now,
+    },
+    observations: {
+      type: String,
+      default: null,
     },
   },
-  previousStatus: {
-    type: DataTypes.ENUM(
-      'Lead', 
-      'Reunião Agendada', 
-      'Reunião Realizada',
-      'Reunião Cancelada', 
-      'Aguardando Documentação', 
-      'Cadastro Efetivado', 
-      'Cliente Operando'
-    ),
-    allowNull: true,
-  },
-  newStatus: {
-    type: DataTypes.ENUM(
-      'Lead', 
-      'Reunião Agendada', 
-      'Reunião Realizada',
-      'Reunião Cancelada', 
-      'Aguardando Documentação',  
-      'Cadastro Efetivado', 
-      'Cliente Operando'
-    ),
-    allowNull: false,
-    defaultValue: 'Lead',
-  },
-  previousOwnerType: {
-    type: DataTypes.ENUM('SDR', 'Closer', null),
-    allowNull: true,
-  },
-  newOwnerType: {
-    type: DataTypes.ENUM('SDR', 'Closer'),
-    allowNull: true,
-  },
-  qualificationStatus: {
-    type: DataTypes.ENUM(
-      'Lead Qualificado', 
-      'Lead Desqualificado'
-    ),
-    allowNull: true,
-  },
-  userId: {
-    type: DataTypes.INTEGER,
-    allowNull: true,
-    references: {
-      model: 'Users',
-      key: 'id',
+  {
+    timestamps: true,
+    toJSON: {
+      virtuals: true,
+      transform(doc, ret) {
+        ret.id = ret._id;
+        delete ret.__v;
+        return ret;
+      },
     },
-  },
-  previousAssignedUserId: {
-    type: DataTypes.INTEGER,
-    allowNull: true,
-    references: {
-      model: 'Users',
-      key: 'id',
+    toObject: {
+      virtuals: true,
+      transform(doc, ret) {
+        ret.id = ret._id;
+        delete ret.__v;
+        return ret;
+      },
     },
-  },
-  newAssignedUserId: {
-    type: DataTypes.INTEGER,
-    allowNull: true,
-    references: {
-      model: 'Users',
-      key: 'id',
-    },
-  },
-  changeDate: {
-    type: DataTypes.DATE,
-    allowNull: false,
-    defaultValue: DataTypes.NOW,
-  },
-  observations: {
-    type: DataTypes.TEXT,
-    allowNull: true,
   }
-}, {
-  tableName: 'PipelineHistories',
-  timestamps: true, 
-  paranoid: false  
-});
+);
 
-PipelineHistory.belongsTo(Company, { 
-  foreignKey: 'companyId',
-  onDelete: 'CASCADE', 
-  onUpdate: 'CASCADE'
-});
-Company.hasMany(PipelineHistory, { 
-  foreignKey: 'companyId',
-  as: 'PipelineHistory' 
-});
+pipelineHistorySchema.index({ companyId: 1, changeDate: -1 });
 
-// Add associations to track users
-PipelineHistory.belongsTo(User, {
-  foreignKey: 'userId',
-  as: 'User'
-});
-
-PipelineHistory.belongsTo(User, {
-  foreignKey: 'previousAssignedUserId',
-  as: 'PreviousAssignedUser'
-});
-
-PipelineHistory.belongsTo(User, {
-  foreignKey: 'newAssignedUserId',
-  as: 'NewAssignedUser'
-});
+const PipelineHistory = mongoose.model('PipelineHistory', pipelineHistorySchema);
 
 module.exports = PipelineHistory;
+

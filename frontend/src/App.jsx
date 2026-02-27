@@ -17,6 +17,7 @@ import Login from "./pages/Login";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import Layout from "./components/layout/Layout";
+import LoadingScreen from "./components/ui/LoadingScreen";
 import { AuthProvider, AuthContext } from "./contexts/AuthContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
 const theme = createTheme({
@@ -98,7 +99,7 @@ const theme = createTheme({
 const ProtectedRoute = ({ children, requiredRoles = ["SDR", "Supervisor", "ADM", "Closer"] }) => {
   const { isAuthenticated, loading, hasAccess, user } = React.useContext(AuthContext);
   if (loading) {
-    return /* @__PURE__ */ jsxDEV("div", { children: "Carregando..." }, void 0, false, {
+    return /* @__PURE__ */ jsxDEV(LoadingScreen, { message: "Carregando sessao...", fullScreen: true }, void 0, false, {
       fileName: "<stdin>",
       lineNumber: 108,
       columnNumber: 12

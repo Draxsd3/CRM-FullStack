@@ -5,6 +5,7 @@ import dayjs from "dayjs";
 import { toast } from "react-toastify";
 import ReportFilters from "../components/reports/ReportFilters";
 import ReportCharts from "../components/reports/ReportCharts";
+import LoadingScreen from "../components/ui/LoadingScreen";
 import reportService from "../services/reportService";
 const Reports = () => {
   const DEFAULT_REPORT_PARAMS = {
@@ -76,7 +77,7 @@ const Reports = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `relatorio_securitizadora_${startDate}_a_${endDate}.${format === "pdf" ? "pdf" : "xlsx"}`;
+      a.download = `relatorio_crm_leads_${startDate}_a_${endDate}.${format === "pdf" ? "pdf" : "xlsx"}`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -89,8 +90,25 @@ const Reports = () => {
       setLoading(false);
     }
   };
-  return /* @__PURE__ */ jsxDEV(Box, { children: [
-    /* @__PURE__ */ jsxDEV(Typography, { variant: "h4", mb: 3, children: "Relat\xF3rios" }, void 0, false, {
+  return /* @__PURE__ */ jsxDEV(Box, { sx: { pb: 2 }, children: [
+    /* @__PURE__ */ jsxDEV(Paper, { elevation: 0, sx: {
+      p: 2.5,
+      mb: 2.5,
+      borderRadius: 3,
+      border: "1px solid rgba(15, 23, 42, 0.08)",
+      background: "linear-gradient(95deg, #f8fbff 0%, #ffffff 48%, #f9fcff 100%)"
+    }, children: [
+      /* @__PURE__ */ jsxDEV(Typography, { variant: "h4", sx: { fontWeight: 700 }, children: "Relat\xF3rios" }, void 0, false, {
+        fileName: "<stdin>",
+        lineNumber: 123,
+        columnNumber: 7
+      }),
+      /* @__PURE__ */ jsxDEV(Typography, { variant: "body1", color: "text.secondary", children: "Acompanhe indicadores com visual mais claro e comparativo." }, void 0, false, {
+        fileName: "<stdin>",
+        lineNumber: 123,
+        columnNumber: 7
+      })
+    ] }, void 0, true, {
       fileName: "<stdin>",
       lineNumber: 123,
       columnNumber: 7
@@ -109,11 +127,7 @@ const Reports = () => {
         columnNumber: 7
       }
     ),
-    loading && /* @__PURE__ */ jsxDEV(Paper, { elevation: 2, sx: { p: 3, textAlign: "center" }, children: /* @__PURE__ */ jsxDEV(Typography, { children: "Carregando dados do relat\xF3rio..." }, void 0, false, {
-      fileName: "<stdin>",
-      lineNumber: 132,
-      columnNumber: 11
-    }) }, void 0, false, {
+    loading && /* @__PURE__ */ jsxDEV(LoadingScreen, { message: "Carregando dados do relatorio..." }, void 0, false, {
       fileName: "<stdin>",
       lineNumber: 131,
       columnNumber: 9

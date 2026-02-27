@@ -1,69 +1,78 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
-const Company = require('./Company');
+const mongoose = require('mongoose');
 
-const Meeting = sequelize.define('Meeting', {
-  id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true,
-  },
-  title: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  description: {
-    type: DataTypes.TEXT,
-    allowNull: true,
-  },
-  startTime: {
-    type: DataTypes.DATE,
-    allowNull: false,
-  },
-  endTime: {
-    type: DataTypes.DATE,
-    allowNull: false,
-  },
-  location: {
-    type: DataTypes.STRING,
-    allowNull: true,
-  },
-  meetingType: {
-    type: DataTypes.ENUM('Presencial', 'Virtual', 'Telefônica'),
-    allowNull: false,
-    defaultValue: 'Presencial',
-  },
-  status: {
-    type: DataTypes.ENUM('Agendada', 'Realizada', 'Cancelada', 'Reagendada'),
-    allowNull: false,
-    defaultValue: 'Agendada',
-  },
-  companyId: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    references: {
-      model: Company,
-      key: 'id',
+const meetingSchema = new mongoose.Schema(
+  {
+    title: {
+      type: String,
+      required: [true, 'Título da reunião é obrigatório'],
+      trim: true,
+    },
+    description: {
+      type: String,
+      default: null,
+    },
+    startTime: {
+      type: Date,
+      required: [true, 'Data e hora de início são obrigatórias'],
+    },
+    endTime: {
+      type: Date,
+      required: [true, 'Data e hora de término são obrigatórias'],
+    },
+    location: {
+      type: String,
+      default: null,
+    },
+    meetingType: {
+      type: String,
+      enum: ['Presencial', 'Virtual', 'Telefônica'],
+      default: 'Presencial',
+    },
+    status: {
+      type: String,
+      enum: ['Agendada', 'Realizada', 'Cancelada', 'Reagendada'],
+      default: 'Agendada',
+    },
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Company',
+      required: [true, 'ID da empresa é obrigatório'],
+    },
+    ownerUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    enableNotification: {
+      type: Boolean,
+      default: true,
     },
   },
-  enableNotification: {
-    type: DataTypes.BOOLEAN,
-    allowNull: false,
-    defaultValue: true,
-  },
-  createdAt: {
-    type: DataTypes.DATE,
-    allowNull: false,
-    defaultValue: DataTypes.NOW,
-  },
-  updatedAt: {
-    type: DataTypes.DATE,
-    allowNull: false,
-    defaultValue: DataTypes.NOW,
-  },
-});
+  {
+    timestamps: true,
+    toJSON: {
+      virtuals: true,
+      transform(doc, ret) {
+        ret.id = ret._id;
+        delete ret.__v;
+        return ret;
+      },
+    },
+    toObject: {
+      virtuals: true,
+      transform(doc, ret) {
+        ret.id = ret._id;
+        delete ret.__v;
+        return ret;
+      },
+    },
+  }
+);
 
-Meeting.belongsTo(Company, { foreignKey: 'companyId' });
-Company.hasMany(Meeting, { foreignKey: 'companyId' });
+meetingSchema.index({ companyId: 1 });
+meetingSchema.index({ startTime: 1 });
+meetingSchema.index({ ownerUserId: 1 });
+
+const Meeting = mongoose.model('Meeting', meetingSchema);
 
 module.exports = Meeting;

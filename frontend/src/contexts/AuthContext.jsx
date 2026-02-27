@@ -41,10 +41,13 @@ const AuthProvider = ({ children }) => {
       localStorage.setItem("token", token);
       setUser(user2);
       setIsAuthenticated(true);
-      return true;
+      return { success: true };
     } catch (error) {
       console.error("Login error", error);
-      return false;
+      return {
+        success: false,
+        message: error?.response?.data?.error || "Erro ao autenticar"
+      };
     }
   };
   const logout = () => {

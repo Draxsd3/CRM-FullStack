@@ -22,6 +22,13 @@ const companyService = {
     const response = await api.get(`/companies/${id}`);
     return response.data.data;
   },
+
+  // Consultar dados da empresa por CNPJ (Receita/BrasilAPI)
+  lookupCompanyByCnpj: async (cnpj) => {
+    const cleaned = String(cnpj || '').replace(/\D/g, '');
+    const response = await api.get(`/companies/cnpj/${cleaned}`);
+    return response.data.data;
+  },
   
   // Criar empresa - FIXING ISSUE WITH LEAD DISPLAY
   createCompany: async (companyData) => {

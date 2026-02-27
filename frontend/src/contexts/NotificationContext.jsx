@@ -1,9 +1,10 @@
 import { jsxDEV } from "react/jsx-dev-runtime";
-import React, { createContext, useState, useCallback, useEffect, useRef } from "react";
+import React, { createContext, useState, useCallback, useEffect, useRef, useContext } from "react";
 import { toast } from "react-toastify";
 import { Howl } from "howler";
 import meetingService from "../services/meetingService";
 import NotificationDialog from "../components/notifications/NotificationDialog";
+import { AuthContext } from "./AuthContext";
 const NotificationContext = createContext();
 const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
@@ -19,6 +20,7 @@ const NotificationProvider = ({ children }) => {
   const dialogZIndexRef = useRef(9999);
   const remindersRef = useRef([]);
   const reminderIntervalRef = useRef(null);
+  const { isAuthenticated, loading } = useContext(AuthContext);
   useEffect(() => {
     soundRef.current = new Howl({
       src: ["https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"],
@@ -212,6 +214,9 @@ const NotificationProvider = ({ children }) => {
     }, 300);
   }, []);
   useEffect(() => {
+    if (!isAuthenticated || loading) {
+      return;
+    }
     const checkUpcomingMeetings = async () => {
       try {
         const now = /* @__PURE__ */ new Date();
@@ -284,7 +289,7 @@ const NotificationProvider = ({ children }) => {
       }
       stopFlashingTitle();
     };
-  }, [addNotification, notifications, isNotificationChecked, stopFlashingTitle, showUpcomingMeetingPopup]);
+  }, [isAuthenticated, loading, addNotification, notifications, isNotificationChecked, stopFlashingTitle, showUpcomingMeetingPopup]);
   const dismissAllUpcomingMeetingNotifications = useCallback(() => {
     const upcomingMeetingNotifications = notifications.filter((n) => n.type === "upcoming-meeting");
     upcomingMeetingNotifications.forEach((notification) => {

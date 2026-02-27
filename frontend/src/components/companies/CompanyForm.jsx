@@ -8,9 +8,15 @@ import {
   Grid,
   MenuItem,
   Typography,
-  Paper
+  Paper,
+  InputAdornment,
+  IconButton,
+  Tooltip,
+  CircularProgress
 } from "@mui/material";
 import { toast } from "react-toastify";
+import SearchIcon from "@mui/icons-material/Search";
+import companyService from "../../services/companyService";
 const CompanyForm = ({ initialValues, onSubmit, onCancel, isEditing, isSubmitting }) => {
   const VALIDATION_CONFIG = {
     /** Minimum name length */
@@ -33,6 +39,7 @@ const CompanyForm = ({ initialValues, onSubmit, onCancel, isEditing, isSubmittin
     /** Error message truncation length */
     MAX_ERROR_MESSAGE_LENGTH: 200
   };
+  const [isLoadingCnpj, setIsLoadingCnpj] = React.useState(false);
   const CompanySchema = Yup.object().shape({
     name: Yup.string().min(VALIDATION_CONFIG.MIN_NAME_LENGTH, "Nome muito curto").max(VALIDATION_CONFIG.MAX_NAME_LENGTH, "Nome muito longo").required("Nome \xE9 obrigat\xF3rio"),
     cnpj: Yup.string().matches(/^\d{14}$/, "CNPJ deve conter exatamente 14 d\xEDgitos num\xE9ricos").test("valid-cnpj", "CNPJ inv\xE1lido", function(value) {
@@ -143,7 +150,33 @@ const CompanyForm = ({ initialValues, onSubmit, onCancel, isEditing, isSubmittin
         validationSchema: CompanySchema,
         onSubmit: handleSubmit,
         enableReinitialize: true,
-        children: ({ errors, touched, isSubmitting: formSubmitting, handleChange, values: values2 }) => /* @__PURE__ */ jsxDEV(Form, { children: /* @__PURE__ */ jsxDEV(Grid, { container: true, spacing: 2, children: [
+        children: ({ errors, touched, isSubmitting: formSubmitting, handleChange, values: values2, setFieldValue }) => {
+          const handleCnpjLookup = async () => {
+            const cleaned = (values2.cnpj || "").replace(/\D/g, "");
+            if (cleaned.length !== 14) {
+              toast.error("Informe um CNPJ valido com 14 digitos");
+              return;
+            }
+            try {
+              setIsLoadingCnpj(true);
+              const data = await companyService.lookupCompanyByCnpj(cleaned);
+              setFieldValue("cnpj", data.cnpj || cleaned);
+              if (data.name) setFieldValue("name", data.name);
+              if (data.contactName) setFieldValue("contactName", data.contactName);
+              if (data.contactPhone) setFieldValue("contactPhone", data.contactPhone);
+              if (data.email) setFieldValue("email", data.email);
+              if (data.address) setFieldValue("address", data.address);
+              if (data.city) setFieldValue("city", data.city);
+              if (data.state) setFieldValue("state", data.state);
+              toast.success("Dados importados da Receita com sucesso");
+            } catch (error) {
+              toast.error(error?.response?.data?.error || "Nao foi possivel buscar dados no CNPJ");
+            } finally {
+              setIsLoadingCnpj(false);
+            }
+          };
+
+          return /* @__PURE__ */ jsxDEV(Form, { children: /* @__PURE__ */ jsxDEV(Grid, { container: true, spacing: 2, children: [
           /* @__PURE__ */ jsxDEV(Grid, { item: true, xs: 12, md: 6, children: /* @__PURE__ */ jsxDEV(
             Field,
             {
@@ -181,7 +214,41 @@ const CompanyForm = ({ initialValues, onSubmit, onCancel, isEditing, isSubmittin
               helperText: touched.cnpj && errors.cnpj,
               onChange: handleChange,
               value: values2.cnpj,
-              disabled: isEditing
+              disabled: isEditing,
+              InputProps: {
+                endAdornment: !isEditing ? /* @__PURE__ */ jsxDEV(InputAdornment, { position: "end", children: /* @__PURE__ */ jsxDEV(Tooltip, { title: "Buscar dados na Receita Federal", children: /* @__PURE__ */ jsxDEV(
+                  IconButton,
+                  {
+                    onClick: handleCnpjLookup,
+                    edge: "end",
+                    disabled: isLoadingCnpj,
+                    children: isLoadingCnpj ? /* @__PURE__ */ jsxDEV(CircularProgress, { size: 18 }, void 0, false, {
+                      fileName: "<stdin>",
+                      lineNumber: 227,
+                      columnNumber: 17
+                    }) : /* @__PURE__ */ jsxDEV(SearchIcon, {}, void 0, false, {
+                      fileName: "<stdin>",
+                      lineNumber: 227,
+                      columnNumber: 17
+                    })
+                  },
+                  void 0,
+                  false,
+                  {
+                    fileName: "<stdin>",
+                    lineNumber: 227,
+                    columnNumber: 17
+                  }
+                ) }, void 0, false, {
+                  fileName: "<stdin>",
+                  lineNumber: 227,
+                  columnNumber: 17
+                }) }, void 0, false, {
+                  fileName: "<stdin>",
+                  lineNumber: 227,
+                  columnNumber: 17
+                }) : null
+              }
             },
             void 0,
             false,
@@ -435,7 +502,8 @@ const CompanyForm = ({ initialValues, onSubmit, onCancel, isEditing, isSubmittin
           fileName: "<stdin>",
           lineNumber: 211,
           columnNumber: 11
-        })
+        });
+        }
       },
       void 0,
       false,

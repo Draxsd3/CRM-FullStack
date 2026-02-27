@@ -1,59 +1,53 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
-const Company = require('./Company');
-const User = require('./User');
+const mongoose = require('mongoose');
 
-const KYCReport = sequelize.define('KYCReport', {
-  id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true,
-  },
-  companyId: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    references: {
-      model: Company,
-      key: 'id',
+const kycReportSchema = new mongoose.Schema(
+  {
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Company',
+      required: true,
+    },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    userName: {
+      type: String,
+      required: true,
+    },
+    content: {
+      type: String,
+      required: true,
+    },
+    reportType: {
+      type: String,
+      required: true,
     },
   },
-  userId: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    references: {
-      model: User,
-      key: 'id',
+  {
+    timestamps: true,
+    toJSON: {
+      virtuals: true,
+      transform(doc, ret) {
+        ret.id = ret._id;
+        delete ret.__v;
+        return ret;
+      },
     },
-  },
-  userName: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  content: {
-    type: DataTypes.TEXT,
-    allowNull: false,
-  },
-  reportType: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  createdAt: {
-    type: DataTypes.DATE,
-    allowNull: false,
-    defaultValue: DataTypes.NOW,
-  },
-  updatedAt: {
-    type: DataTypes.DATE,
-    allowNull: false,
-    defaultValue: DataTypes.NOW,
-  },
-});
+    toObject: {
+      virtuals: true,
+      transform(doc, ret) {
+        ret.id = ret._id;
+        delete ret.__v;
+        return ret;
+      },
+    },
+  }
+);
 
-// Define associations
-KYCReport.belongsTo(Company, { foreignKey: 'companyId' });
-Company.hasMany(KYCReport, { foreignKey: 'companyId' });
+kycReportSchema.index({ companyId: 1 });
 
-KYCReport.belongsTo(User, { foreignKey: 'userId' });
-User.hasMany(KYCReport, { foreignKey: 'userId' });
+const KYCReport = mongoose.model('KYCReport', kycReportSchema);
 
 module.exports = KYCReport;

@@ -22,10 +22,22 @@ import BusinessIcon from "@mui/icons-material/Business";
 import EventNoteIcon from "@mui/icons-material/EventNote";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import AddCircleIcon from "@mui/icons-material/AddCircle";
-import { Bar } from "react-chartjs-2";
+import { Line } from "react-chartjs-2";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+} from "chart.js";
 import companyService from "../services/companyService";
 import meetingService from "../services/meetingService";
 import pipelineService from "../services/pipelineService";
+import PageSkeleton from "../components/ui/PageSkeleton";
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 const Dashboard = () => {
   const navigate = useNavigate();
   const [companies, setCompanies] = useState([]);
@@ -71,27 +83,46 @@ const Dashboard = () => {
         {
           label: "Empresas por Status",
           data: Object.values(counts),
-          backgroundColor: [
-            "rgba(212, 175, 55, 0.6)",
-            "rgba(255, 206, 86, 0.6)",
-            "rgba(255, 159, 64, 0.6)",
-            "rgba(75, 192, 192, 0.6)",
-            "rgba(46, 125, 50, 0.6)"
-          ],
-          borderColor: [
-            "rgba(212, 175, 55, 1)",
-            "rgba(255, 206, 86, 1)",
-            "rgba(255, 159, 64, 1)",
-            "rgba(75, 192, 192, 1)",
-            "rgba(46, 125, 50, 1)"
-          ],
-          borderWidth: 1
+          borderColor: "rgba(37, 99, 235, 1)",
+          backgroundColor: "rgba(37, 99, 235, 0.12)",
+          borderWidth: 2,
+          fill: true,
+          tension: 0.35,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          pointBackgroundColor: "rgba(37, 99, 235, 1)"
         }
       ]
     };
   };
+  const pipelineChartOptions = {
+    maintainAspectRatio: false,
+    responsive: true,
+    layout: { padding: { top: 8, right: 8, left: 4, bottom: 0 } },
+    plugins: {
+      legend: {
+        position: "top",
+        labels: { usePointStyle: true, pointStyle: "circle", padding: 14, boxWidth: 8, boxHeight: 8 }
+      },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => `${ctx.label}: ${ctx.parsed.y ?? 0} empresas`
+        }
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: { precision: 0, stepSize: 1 },
+        grid: { color: "rgba(15, 23, 42, 0.08)" }
+      },
+      x: {
+        grid: { display: false }
+      }
+    }
+  };
   if (loading) {
-    return /* @__PURE__ */ jsxDEV(Typography, { children: "Carregando dashboard..." }, void 0, false, {
+    return /* @__PURE__ */ jsxDEV(PageSkeleton, {}, void 0, false, {
       fileName: "<stdin>",
       lineNumber: 113,
       columnNumber: 12
@@ -104,7 +135,7 @@ const Dashboard = () => {
         lineNumber: 121,
         columnNumber: 11
       }),
-      /* @__PURE__ */ jsxDEV(Typography, { variant: "subtitle1", color: "textSecondary", children: "Vis\xE3o geral do CRM Gold Credit" }, void 0, false, {
+      /* @__PURE__ */ jsxDEV(Typography, { variant: "subtitle1", color: "textSecondary", children: "Vis\xE3o geral do CRM de Leads" }, void 0, false, {
         fileName: "<stdin>",
         lineNumber: 124,
         columnNumber: 11
@@ -430,7 +461,13 @@ const Dashboard = () => {
       lineNumber: 220,
       columnNumber: 9
     }),
-    /* @__PURE__ */ jsxDEV(Grid, { item: true, xs: 12, md: 6, children: /* @__PURE__ */ jsxDEV(Paper, { elevation: 3, sx: { p: 2 }, children: [
+    /* @__PURE__ */ jsxDEV(Grid, { item: true, xs: 12, md: 6, children: /* @__PURE__ */ jsxDEV(Paper, { elevation: 0, sx: {
+      p: 2.5,
+      borderRadius: 3,
+      border: "1px solid rgba(15, 23, 42, 0.08)",
+      boxShadow: "0 8px 24px rgba(15, 23, 42, 0.06)",
+      background: "linear-gradient(180deg, #ffffff 0%, #fafcff 100%)"
+    }, children: [
       /* @__PURE__ */ jsxDEV(Typography, { variant: "h6", gutterBottom: true, children: "Distribui\xE7\xE3o no Pipeline" }, void 0, false, {
         fileName: "<stdin>",
         lineNumber: 278,
@@ -441,14 +478,11 @@ const Dashboard = () => {
         lineNumber: 281,
         columnNumber: 13
       }),
-      /* @__PURE__ */ jsxDEV(Box, { height: 300, children: /* @__PURE__ */ jsxDEV(
-        Bar,
+      /* @__PURE__ */ jsxDEV(Box, { height: 320, children: /* @__PURE__ */ jsxDEV(
+        Line,
         {
           data: generatePipelineChartData(),
-          options: {
-            maintainAspectRatio: false,
-            responsive: true
-          }
+          options: pipelineChartOptions
         },
         void 0,
         false,

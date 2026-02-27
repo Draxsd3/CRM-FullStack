@@ -1,202 +1,165 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
-const User = require('./User');
+﻿const mongoose = require('mongoose');
 
-const Company = sequelize.define('Company', {
-  id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true,
-  },
-  name: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  cnpj: {
-    type: DataTypes.STRING(14),
-    allowNull: false,
-    unique: true,
-    validate: {
-      len: {
-        args: [14, 14],
-        msg: 'CNPJ deve ter exatamente 14 dígitos numéricos'
-      },
-      is: {
-        args: /^\d{14}$/,
-        msg: 'CNPJ deve conter apenas números'
-      },
-      customValidator(value) {
-        const cleanedCnpj = value.replace(/\D/g, '');
-        
-        if (cleanedCnpj.length !== 14) {
-          throw new Error('CNPJ inválido');
-        }
-        
-        // Additional CNPJ validation logic
-        const calculateCheckDigit = (baseNumber, weights) => {
-          const sum = baseNumber
-            .split('')
-            .map((digit, index) => parseInt(digit) * weights[index])
-            .reduce((acc, curr) => acc + curr, 0);
-          
-          const remainder = sum % 11;
-          return remainder < 2 ? 0 : 11 - remainder;
-        };
+const PIPELINE_STATUS_ALIASES = {
+  Lead: ['Lead'],
+  ReuniaoAgendada: ['Reunião Agendada', 'Reuniao Agendada', 'ReuniÃ£o Agendada'],
+  ReuniaoRealizada: ['Reunião Realizada', 'Reuniao Realizada', 'ReuniÃ£o Realizada'],
+  ReuniaoCancelada: ['Reunião Cancelada', 'Reuniao Cancelada', 'ReuniÃ£o Cancelada'],
+  AguardandoDocumentacao: ['Aguardando Documentação', 'Aguardando Documentacao', 'Aguardando DocumentaÃ§Ã£o'],
+  CadastroEfetivado: ['Cadastro Efetivado'],
+  ClienteOperando: ['Cliente Operando'],
+};
 
-        const firstWeights = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
-        const secondWeights = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+const PIPELINE_STATUSES = Object.values(PIPELINE_STATUS_ALIASES).flat();
 
-        // First check digit validation
-        const baseFirstDigit = cleanedCnpj.slice(0, 12);
-        const firstCheckDigit = calculateCheckDigit(baseFirstDigit, firstWeights);
-        if (parseInt(cleanedCnpj[12]) !== firstCheckDigit) {
-          throw new Error('CNPJ inválido');
-        }
+const QUALIFICATION_STATUSES = ['Lead Qualificado', 'Lead Desqualificado'];
 
-        // Second check digit validation
-        const baseSecondDigit = cleanedCnpj.slice(0, 13);
-        const secondCheckDigit = calculateCheckDigit(baseSecondDigit, secondWeights);
-        if (parseInt(cleanedCnpj[13]) !== secondCheckDigit) {
-          throw new Error('CNPJ inválido');
-        }
-      }
-    }
-  },
-  contactName: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  contactPhone: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  email: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    /* @tweakable Email validation complexity */
-    validate: {
-      customValidator(value) {
-        /* @tweakable validation strictness 
-         * 0: Very permissive
-         * 1: Basic structure check
-         * 2: Strict RFC email validation
-         */
-        const VALIDATION_STRICTNESS = 1;
+// CNPJ validation function
+function validateCNPJ(cnpj) {
+  const cleaned = cnpj.replace(/\D/g, '');
+  if (cleaned.length !== 14) return false;
 
-        const basicEmailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        const strictEmailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  const calculateCheckDigit = (baseNumber, weights) => {
+    const sum = baseNumber
+      .split('')
+      .map((digit, index) => parseInt(digit) * weights[index])
+      .reduce((acc, curr) => acc + curr, 0);
+    const remainder = sum % 11;
+    return remainder < 2 ? 0 : 11 - remainder;
+  };
 
-        let isValid = false;
+  const firstWeights = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  const secondWeights = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
 
-        switch(VALIDATION_STRICTNESS) {
-          case 0:
-            isValid = !!value;
-            break;
-          case 1:
-            isValid = basicEmailRegex.test(value);
-            break;
-          case 2:
-            isValid = strictEmailRegex.test(value);
-            break;
-          default:
-            isValid = basicEmailRegex.test(value);
-        }
+  const baseFirst = cleaned.slice(0, 12);
+  const firstCheck = calculateCheckDigit(baseFirst, firstWeights);
+  if (parseInt(cleaned[12]) !== firstCheck) return false;
 
-        if (!isValid) {
-          throw new Error('E-mail inválido');
-        }
-      }
-    }
-  },
-  address: {
-    type: DataTypes.STRING,
-    allowNull: true,
-  },
-  city: {
-    type: DataTypes.STRING,
-    allowNull: true,
-  },
-  state: {
-    type: DataTypes.STRING(2),
-    allowNull: true,
-  },
-  pipelineStatus: {
-    type: DataTypes.ENUM(
-      'Lead', 
-      'Reunião Agendada', 
-      'Reunião Realizada',
-      'Reunião Cancelada', 
-      'Aguardando Documentação', 
-      'Cadastro Efetivado', 
-      'Cliente Operando'
-    ),
-    defaultValue: 'Lead',
-    allowNull: false,
-  },
-  qualificationStatus: {
-    type: DataTypes.ENUM(
-      'Lead Qualificado', 
-      'Lead Desqualificado', 
-      null
-    ),
-    allowNull: true,
-  },
-  assignedUserId: {
-    type: DataTypes.INTEGER,
-    allowNull: true,
-    references: {
-      model: 'Users',
-      key: 'id'
-    }
-  },
-  /* @tweakable Maximum number of allowed transfers */
-  maxTransfers: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    defaultValue: 3
-  },
-  /* @tweakable Transfer history to track company movement between users */
-  transferHistory: {
-    type: DataTypes.JSON,
-    allowNull: true,
-    get() {
-      const rawValue = this.getDataValue('transferHistory');
-      return rawValue ? JSON.parse(rawValue) : [];
+  const baseSecond = cleaned.slice(0, 13);
+  const secondCheck = calculateCheckDigit(baseSecond, secondWeights);
+  if (parseInt(cleaned[13]) !== secondCheck) return false;
+
+  return true;
+}
+
+const companySchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: [true, 'Nome da empresa Ã© obrigatÃ³rio'],
+      trim: true,
     },
-    set(value) {
-      this.setDataValue('transferHistory', JSON.stringify(value));
-    }
+    cnpj: {
+      type: String,
+      required: [true, 'CNPJ Ã© obrigatÃ³rio'],
+      unique: true,
+      validate: {
+        validator: function (v) {
+          const cleaned = v.replace(/\D/g, '');
+          return cleaned.length === 14 && /^\d{14}$/.test(cleaned) && validateCNPJ(cleaned);
+        },
+        message: 'CNPJ invÃ¡lido',
+      },
+      set: (v) => v.replace(/\D/g, ''), // Always store only digits
+    },
+    contactName: {
+      type: String,
+      required: [true, 'Nome do contato Ã© obrigatÃ³rio'],
+      trim: true,
+    },
+    contactPhone: {
+      type: String,
+      required: [true, 'Telefone Ã© obrigatÃ³rio'],
+      trim: true,
+    },
+    email: {
+      type: String,
+      required: [true, 'E-mail Ã© obrigatÃ³rio'],
+      trim: true,
+      match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'E-mail invÃ¡lido'],
+    },
+    address: { type: String, default: null },
+    city: { type: String, default: null },
+    state: { type: String, maxlength: 2, default: null },
+    pipelineStatus: {
+      type: String,
+      enum: PIPELINE_STATUSES,
+      default: 'Lead',
+      required: true,
+    },
+    qualificationStatus: {
+      type: String,
+      enum: [...QUALIFICATION_STATUSES, null],
+      default: null,
+    },
+    assignedUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    maxTransfers: {
+      type: Number,
+      default: 3,
+    },
+    transferHistory: {
+      type: [
+        {
+          fromUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+          toUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+          transferDate: { type: Date, default: Date.now },
+        },
+      ],
+      default: [],
+    },
+    ownerType: {
+      type: String,
+      enum: ['SDR', 'Closer'],
+      default: 'SDR',
+    },
+    lastTransferDate: {
+      type: Date,
+      default: null,
+    },
   },
-  /* Tracks the user type that owns the company */
-  ownerType: {
-    type: DataTypes.ENUM('SDR', 'Closer'),
-    allowNull: false,
-    defaultValue: 'SDR'
-  },
-  lastTransferDate: {
-    type: DataTypes.DATE,
-    allowNull: true
-  },
-  createdAt: {
-    type: DataTypes.DATE,
-    allowNull: false,
-    defaultValue: DataTypes.NOW,
-  },
-  updatedAt: {
-    type: DataTypes.DATE,
-    allowNull: false,
-    defaultValue: DataTypes.NOW,
-  },
+  {
+    timestamps: true,
+    toJSON: {
+      virtuals: true,
+      transform(doc, ret) {
+        ret.id = ret._id;
+        delete ret.__v;
+        return ret;
+      },
+    },
+    toObject: {
+      virtuals: true,
+      transform(doc, ret) {
+        ret.id = ret._id;
+        delete ret.__v;
+        return ret;
+      },
+    },
+  }
+);
+
+// Virtual populate for AssignedUser
+companySchema.virtual('AssignedUser', {
+  ref: 'User',
+  localField: 'assignedUserId',
+  foreignField: '_id',
+  justOne: true,
 });
 
-// Add associations
-Company.belongsTo(User, { 
-  foreignKey: 'assignedUserId',
-  as: 'AssignedUser' 
-});
-User.hasMany(Company, { 
-  foreignKey: 'assignedUserId', 
-  as: 'Companies' 
-});
+// Index for search
+companySchema.index({ name: 'text', cnpj: 'text', contactName: 'text', email: 'text' });
+companySchema.index({ assignedUserId: 1 });
+companySchema.index({ pipelineStatus: 1 });
+
+// Statics
+companySchema.statics.PIPELINE_STATUSES = PIPELINE_STATUSES;
+companySchema.statics.QUALIFICATION_STATUSES = QUALIFICATION_STATUSES;
+
+const Company = mongoose.model('Company', companySchema);
 
 module.exports = Company;
+

@@ -16,6 +16,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const { response } = error;
+    const hasToken = !!localStorage.getItem('token');
     
     // Log the error for debugging
     console.error('API Error:', {
@@ -26,6 +27,9 @@ api.interceptors.response.use(
     });
     
     if (response && response.data) {
+      if (response.status === 401 && !hasToken) {
+        return Promise.reject(error);
+      }
       // Don't show toast for 404 errors on company details - let component handle it
       if (!(response.status === 404 && error.config?.url?.includes('/companies/'))) {
         toast.error(response.data.error || 'Ocorreu um erro na requisição');

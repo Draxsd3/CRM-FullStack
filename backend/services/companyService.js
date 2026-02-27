@@ -2,117 +2,157 @@ const Company = require('../models/Company');
 const User = require('../models/User');
 const KYCReport = require('../models/KYCReport');
 const PDFDocument = require('pdfkit');
-const { Op } = require('sequelize');
-const sequelize = require('../config/database');
+const mongoose = require('mongoose');
 
-// Company service configuration
-/* @tweakable Company listing configuration */
 const COMPANY_CONFIG = {
-  /** Maximum number of companies to return */
   MAX_COMPANIES_LIMIT: 1000,
-  
-  /** Default sorting for company lists */
-  DEFAULT_SORT: [['createdAt', 'DESC']],
-  
-  /** Enable detailed logging for company operations */
-  VERBOSE_LOGGING: true // Always enable for debugging
+  DEFAULT_SORT: { createdAt: -1 },
+  VERBOSE_LOGGING: true,
 };
 
-// Get all companies in the system 
-exports.getAllCompaniesInSystem = async (page = 1, pageSize = 50) => {
-  const limit = Math.min(pageSize, COMPANY_CONFIG.MAX_COMPANIES_LIMIT);
-  const offset = (page - 1) * limit;
+const onlyDigits = (v = '') => String(v).replace(/\D/g, '');
 
-  const companies = await Company.findAll({
-    include: [
-      {
-        model: User,
-        as: 'AssignedUser',
-        attributes: ['id', 'name', 'email', 'role']
-      }
-    ],
-    order: COMPANY_CONFIG.DEFAULT_SORT,
-    limit,
-    offset
-  });
-
-  if (COMPANY_CONFIG.VERBOSE_LOGGING) {
-    console.log('Retrieved companies:', {
-      count: companies.length,
-      page,
-      pageSize
-    });
+const normalizeCnpjLookup = (payload = {}, provider = 'unknown') => {
+  if (provider === 'brasilapi') {
+    return {
+      provider,
+      name: payload.razao_social || payload.nome_fantasia || '',
+      cnpj: onlyDigits(payload.cnpj),
+      contactName: payload.nome_fantasia || payload.razao_social || '',
+      contactPhone: onlyDigits(payload.ddd_telefone_1 || payload.ddd_telefone_2 || ''),
+      email: payload.email || '',
+      address: [payload.logradouro, payload.numero, payload.bairro].filter(Boolean).join(', '),
+      city: payload.municipio || '',
+      state: payload.uf || '',
+    };
   }
 
-  return companies;
+  return {
+    provider,
+    name: payload.nome || payload.fantasia || '',
+    cnpj: onlyDigits(payload.cnpj),
+    contactName: payload.fantasia || payload.nome || '',
+    contactPhone: onlyDigits(payload.telefone || ''),
+    email: payload.email || '',
+    address: [payload.logradouro, payload.numero, payload.bairro].filter(Boolean).join(', '),
+    city: payload.municipio || '',
+    state: payload.uf || '',
+  };
 };
 
-// Get all companies for a specific user - This is now an alias to getAllCompaniesInSystem
+const isUsefulLookup = (data) => {
+  return !!(data && (data.name || data.contactName || data.address || data.city || data.state));
+};
+
+// Get all companies in the system
+exports.getAllCompaniesInSystem = async (page = 1, pageSize = 50) => {
+  const limit = Math.min(pageSize, COMPANY_CONFIG.MAX_COMPANIES_LIMIT);
+  const skip = (page - 1) * limit;
+
+  const companies = await Company.find()
+    .populate('assignedUserId', 'id name email role')
+    .sort(COMPANY_CONFIG.DEFAULT_SORT)
+    .skip(skip)
+    .limit(limit)
+    .lean();
+
+  // Map assignedUserId populate to AssignedUser for frontend compatibility
+  return companies.map((c) => ({
+    ...c,
+    id: c._id,
+    AssignedUser: c.assignedUserId
+      ? { id: c.assignedUserId._id, name: c.assignedUserId.name, email: c.assignedUserId.email, role: c.assignedUserId.role }
+      : null,
+  }));
+};
+
+// Get all companies for a specific user (alias)
 exports.getAllCompanies = async (userId, page = 1, pageSize = 50) => {
   return this.getAllCompaniesInSystem(page, pageSize);
 };
 
-// Create company with enhanced error handling and validation
-exports.createCompany = async (companyData, userId) => {
-  /** @tweakable Company creation validation rules */
-  const ValidationRules = {
-    requiredFields: ['name', 'cnpj', 'contactName', 'contactPhone', 'email'],
-    cnpjLength: 14,
-    validateEmail: true
-  };
+// Lookup company data by CNPJ (Receita/BrasilAPI)
+exports.lookupCompanyByCnpj = async (cnpj) => {
+  const cleaned = onlyDigits(cnpj);
+  if (cleaned.length !== 14) {
+    throw new Error('CNPJ deve ter 14 digitos');
+  }
 
-  // Validate required fields
-  for (const field of ValidationRules.requiredFields) {
+  const providers = [
+    async () => {
+      const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleaned}`, {
+        headers: { Accept: 'application/json' },
+      });
+      if (!res.ok) throw new Error(`BrasilAPI HTTP ${res.status}`);
+      const payload = await res.json();
+      return normalizeCnpjLookup(payload, 'brasilapi');
+    },
+    async () => {
+      const res = await fetch(`https://www.receitaws.com.br/v1/cnpj/${cleaned}`, {
+        headers: { Accept: 'application/json' },
+      });
+      if (!res.ok) throw new Error(`ReceitaWS HTTP ${res.status}`);
+      const payload = await res.json();
+      if (payload.status && String(payload.status).toUpperCase() === 'ERROR') {
+        throw new Error(payload.message || 'ReceitaWS indisponivel');
+      }
+      return normalizeCnpjLookup(payload, 'receitaws');
+    },
+  ];
+
+  const errors = [];
+  for (const provider of providers) {
+    try {
+      const data = await provider();
+      if (isUsefulLookup(data)) return data;
+    } catch (error) {
+      errors.push(error.message);
+    }
+  }
+
+  throw new Error(`Nao foi possivel consultar CNPJ. Tentativas: ${errors.join(' | ')}`);
+};
+
+// Create company
+exports.createCompany = async (companyData, userId) => {
+  const requiredFields = ['name', 'cnpj', 'contactName', 'contactPhone', 'email'];
+
+  for (const field of requiredFields) {
     if (!companyData[field]) {
       throw new Error(`${field} é um campo obrigatório`);
     }
   }
 
-  // Clean and validate CNPJ
   const cleanedCnpj = companyData.cnpj.replace(/\D/g, '');
-  
-  if (cleanedCnpj.length !== ValidationRules.cnpjLength) {
+
+  if (cleanedCnpj.length !== 14) {
     throw new Error('CNPJ deve ter exatamente 14 dígitos');
   }
 
-  // Optional email validation
-  if (ValidationRules.validateEmail) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(companyData.email)) {
-      throw new Error('E-mail inválido');
-    }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(companyData.email)) {
+    throw new Error('E-mail inválido');
   }
 
-  const transaction = await sequelize.transaction();
+  // Check for duplicate CNPJ
+  const existing = await Company.findOne({ cnpj: cleanedCnpj });
+  if (existing) {
+    throw new Error('CNPJ já cadastrado');
+  }
 
   try {
-    // *** CRITICAL FIX: Triple-ensure Lead status is set ***
-    console.log("Creating company with following data:", {
-      ...companyData,
-      pipelineStatus: 'Lead', // Force Lead status
-      cnpj: cleanedCnpj,
-      assignedUserId: userId
-    });
-    
     const company = await Company.create({
       ...companyData,
       cnpj: cleanedCnpj,
-      pipelineStatus: 'Lead', // Force Lead status 
-      assignedUserId: userId
-    }, { transaction });
+      pipelineStatus: 'Lead',
+      assignedUserId: userId,
+    });
 
-    console.log("Company created with ID:", company.id, "and status:", company.pipelineStatus);
-    
-    await transaction.commit();
     return company;
   } catch (error) {
-    await transaction.rollback();
-    
-    // Log detailed error information
     console.error('Company Creation Error:', {
       message: error.message,
       stack: error.stack,
-      validationErrors: error.errors
     });
 
     throw error;
@@ -121,148 +161,112 @@ exports.createCompany = async (companyData, userId) => {
 
 // Get company by ID
 exports.getCompanyById = async (id, userId) => {
-  return await Company.findOne({
-    where: { 
-      id
-      // Removed assignedUserId filter to allow all users to view any company
-    },
-    include: [{ 
-      model: User, 
-      as: 'AssignedUser', 
-      attributes: ['id', 'name'] 
-    }]
-  });
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return null;
+  }
+
+  const company = await Company.findById(id)
+    .populate('assignedUserId', 'id name')
+    .lean();
+
+  if (!company) return null;
+
+  return {
+    ...company,
+    id: company._id,
+    AssignedUser: company.assignedUserId
+      ? { id: company.assignedUserId._id, name: company.assignedUserId.name }
+      : null,
+  };
 };
 
 // Update company
 exports.updateCompany = async (id, companyData) => {
-  const company = await Company.findByPk(id);
-  
-  if (!company) {
-    return null;
-  }
-  
-  return await company.update(companyData);
+  if (!mongoose.Types.ObjectId.isValid(id)) return null;
+
+  const company = await Company.findByIdAndUpdate(id, companyData, {
+    new: true,
+    runValidators: true,
+  });
+
+  return company;
 };
 
 // Delete company
 exports.deleteCompany = async (id) => {
-  const company = await Company.findByPk(id);
-  
-  if (!company) {
-    return false;
-  }
-  
-  await company.destroy();
-  return true;
+  if (!mongoose.Types.ObjectId.isValid(id)) return false;
+
+  const company = await Company.findByIdAndDelete(id);
+  return !!company;
 };
 
 // Search companies
 exports.searchCompanies = async (searchTerm, userId) => {
-  return await Company.findAll({
-    where: {
-      assignedUserId: userId,
-      [Op.or]: [
-        { name: { [Op.like]: `%${searchTerm}%` } },
-        { cnpj: { [Op.like]: `%${searchTerm}%` } },
-        { contactName: { [Op.like]: `%${searchTerm}%` } },
-        { email: { [Op.like]: `%${searchTerm}%` } }
-      ]
-    }
-  });
+  const regex = new RegExp(searchTerm, 'i');
+
+  return await Company.find({
+    assignedUserId: userId,
+    $or: [
+      { name: regex },
+      { cnpj: regex },
+      { contactName: regex },
+      { email: regex },
+    ],
+  }).lean();
 };
 
 // Transfer company to user
 exports.transferCompanyToUser = async (companyId, currentUserId, newUserId) => {
-  const transaction = await sequelize.transaction();
-  
   try {
-    const company = await Company.findByPk(companyId, { transaction });
-    
-    if (!company) {
-      throw new Error('Empresa não encontrada');
-    }
-    
-    /* @tweakable Maximum number of allowed transfers */
+    const company = await Company.findById(companyId);
+
+    if (!company) throw new Error('Empresa não encontrada');
+
     const MAX_TRANSFERS = 3;
-    
-    // Get current transfer history
     const transferHistory = company.transferHistory || [];
-    
+
     if (transferHistory.length >= MAX_TRANSFERS) {
       throw new Error('Número máximo de transferências atingido');
     }
-    
-    // Validate users exist
-    const currentUser = await User.findByPk(currentUserId);
-    const newUser = await User.findByPk(newUserId);
-    
-    if (!currentUser || !newUser) {
-      throw new Error('Usuários inválidos');
-    }
-    
-    // Update transfer history
+
+    const currentUser = await User.findById(currentUserId);
+    const newUser = await User.findById(newUserId);
+
+    if (!currentUser || !newUser) throw new Error('Usuários inválidos');
+
     transferHistory.push({
       fromUserId: currentUserId,
       toUserId: newUserId,
-      transferDate: new Date()
+      transferDate: new Date(),
     });
-    
-    // Update company
-    await company.update({
-      assignedUserId: newUserId,
-      transferHistory: transferHistory,
-      lastTransferDate: new Date()
-    }, { transaction });
-    
-    await transaction.commit();
-    
+
+    company.assignedUserId = newUserId;
+    company.transferHistory = transferHistory;
+    company.lastTransferDate = new Date();
+
+    await company.save();
+
     return company;
   } catch (error) {
-    await transaction.rollback();
     throw error;
   }
 };
 
-// Get KYC reports for a company
+// Get KYC reports
 exports.getKYCReports = async (companyId) => {
-  try {
-    console.log('Fetching KYC reports for company:', companyId);
-    
-    const reports = await KYCReport.findAll({
-      where: { companyId },
-      include: [
-        {
-          model: User,
-          attributes: ['id', 'name']
-        }
-      ],
-      order: [['createdAt', 'DESC']]
-    });
-    
-    console.log(`Found ${reports.length} KYC reports for company ${companyId}`);
-    
-    return reports;
-  } catch (error) {
-    console.error('Error in getKYCReports service:', error);
-    throw error;
-  }
+  return await KYCReport.find({ companyId })
+    .populate('userId', 'id name')
+    .sort({ createdAt: -1 })
+    .lean();
 };
 
 // Create KYC report
 exports.createKYCReport = async (reportData) => {
   try {
     const report = await KYCReport.create(reportData);
-    
-    // Return with user information
-    return await KYCReport.findByPk(report.id, {
-      include: [
-        {
-          model: User,
-          attributes: ['id', 'name']
-        }
-      ]
-    });
+    return await KYCReport.findById(report._id)
+      .populate('userId', 'id name')
+      .lean();
   } catch (error) {
     throw new Error('Erro ao criar relatório KYC: ' + error.message);
   }
@@ -271,46 +275,34 @@ exports.createKYCReport = async (reportData) => {
 // Generate KYC report PDF
 exports.generateKYCReportPDF = async (reportId) => {
   try {
-    const report = await KYCReport.findByPk(reportId, {
-      include: [
-        {
-          model: Company,
-          attributes: ['name', 'cnpj']
-        },
-        {
-          model: User,
-          attributes: ['name']
-        }
-      ]
-    });
-    
-    if (!report) {
-      throw new Error('Relatório KYC não encontrado');
-    }
-    
-    // Create PDF
+    const report = await KYCReport.findById(reportId)
+      .populate('companyId', 'name cnpj')
+      .populate('userId', 'name')
+      .lean();
+
+    if (!report) throw new Error('Relatório KYC não encontrado');
+
     const doc = new PDFDocument();
     const buffers = [];
-    
+
     doc.on('data', buffers.push.bind(buffers));
-    
-    // Add content to PDF
+
     doc.fontSize(16).text('Relatório KYC', { align: 'center' });
     doc.moveDown();
-    
-    doc.fontSize(12).text(`Empresa: ${report.Company.name}`);
-    doc.text(`CNPJ: ${report.Company.cnpj}`);
+
+    doc.fontSize(12).text(`Empresa: ${report.companyId.name}`);
+    doc.text(`CNPJ: ${report.companyId.cnpj}`);
     doc.text(`Tipo: ${report.reportType}`);
     doc.text(`Criado por: ${report.userName}`);
     doc.text(`Data: ${new Date(report.createdAt).toLocaleDateString('pt-BR')}`);
     doc.moveDown();
-    
+
     doc.fontSize(14).text('Conteúdo:', { underline: true });
     doc.moveDown();
     doc.fontSize(12).text(report.content, { align: 'justify' });
-    
+
     doc.end();
-    
+
     return new Promise((resolve) => {
       doc.on('end', () => {
         resolve(Buffer.concat(buffers));
