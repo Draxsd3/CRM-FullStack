@@ -119,9 +119,12 @@ CRM-FullStack/
 
 ### Capturas
 
+![Login](./prints/login.png)
 ![Dashboard](./prints/dashboard.png)
 ![Pipeline](./prints/pipeline.png)
-![Cadastro de Empresa](./prints/cadastro_empresa.png)
+![Detalhes da Empresa](./prints/company-details.png)
+![Agenda](./prints/calendar.png)
+![Relatorios](./prints/reports.png)
 
 ## Endpoints Relevantes
 
